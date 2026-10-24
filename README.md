@@ -25,19 +25,21 @@ git clone https://github.com/ekjots1ngh/gate-closure
 cd gate-closure
 pip install -r requirements.txt
 python -m pytest -q tests                                        # poison test on synthetic data, no network
-python -m gclose.ingest check                                    # 30-second Elexon smoke test
-python -m gclose.ingest prices 2022-01-01 2026-10-23             # about 1,760 calls, 8 in parallel
-python -m gclose.ingest vintages WINDFOR 2022-01-01 2026-10-23
-python -m gclose.ingest vintages NDF 2022-01-01 2026-10-23
-python -m gclose.ingest vintages IMBALNGC 2022-01-01 2026-10-23
+python -m gclose.ingest check                                    # 30-second Elexon smoke test, prints kB/s
+python -m gclose.ingest pull 2025-07-01 2026-10-23               # newest month first, resumable; Ctrl+C is safe
 python -m gclose.backtest                                        # walk-forward ladder + battery table with intervals
+```
+
+The pulled months are committed under `data/raw/<dataset>/<YYYY-MM>.parquet`, so `python -m gclose.backtest` reproduces the headline with no network.
 ```
 
 With `make`: `make test`, `make data`, `make backtest`, `make reproduce`.
 
 ## Data
 
-Elexon Insights API (public, no key): `/balancing/settlement/system-prices/{date}` for prices and net imbalance volume; `/datasets/WINDFOR`, `/datasets/NDF`, `/datasets/IMBALNGC` queried by publish window for forecast vintages. Wind farm sites for the map from the Renewable Energy Planning Database.
+Elexon Insights API (public, no key): `/balancing/settlement/system-prices/{date}` for prices and net imbalance volume; `/datasets/WINDFOR`, `/datasets/NDF`, `/datasets/IMBALNGC` queried by publish window for forecast vintages (IMBALNGC with `boundary=N`). Wind farm sites for the map from the Renewable Energy Planning Database.
+
+Contains BMRS data © Elexon Limited copyright and database right 2026, used under the BMRS Data Licence.
 
 ## Prior work, declared
 

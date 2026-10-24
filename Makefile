@@ -1,16 +1,16 @@
-START=2022-01-01
+START=2025-07-01
 END=2026-10-23
 
-.PHONY: test data backtest reproduce
+.PHONY: test check data backtest reproduce
 
 test:
 	python -m pytest -q tests
 
+check:
+	python -m gclose.ingest check
+
 data:
-	python -m gclose.ingest prices $(START) $(END)
-	python -m gclose.ingest vintages WINDFOR $(START) $(END)
-	python -m gclose.ingest vintages NDF $(START) $(END)
-	python -m gclose.ingest vintages IMBALNGC $(START) $(END)
+	python -m gclose.ingest pull $(START) $(END)
 
 backtest:
 	python -m gclose.backtest

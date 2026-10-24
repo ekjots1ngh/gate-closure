@@ -14,7 +14,7 @@ For settlement period t starting at T (UTC), the decision is made at T minus 60 
 
 Elexon Insights API, public, no key. Datasets: system prices (DISEBSP via `/balancing/settlement/system-prices/{date}`), WINDFOR, NDF, IMBALNGC. All keyed on `start_time` in UTC. `settlementPeriod` is never used for arithmetic (Sunday 25 Oct 2026 has 50 periods).
 
-Training window: 2022-01-01 to 2026-06-30. Holdout: 2026-07-01 to 2026-10-23, opened once, Sunday morning, after the model is frozen. Nothing is tuned on the holdout.
+Training window: 2022-01-01 to 2026-06-30 (see Amendment 1). Holdout: 2026-07-01 to 2026-10-23, opened once, Sunday morning, after the model is frozen. Nothing is tuned on the holdout.
 
 ## Targets
 
@@ -65,4 +65,4 @@ The RMT spurious-factor paper and the systematic-trading repository are earlier 
 
 ## Amendments
 
-(none)
+1. Saturday 24 October 2026, about 15:15 BST, before any result existed. The venue connection measured around 30 kB/s, which rules out pulling 2022 to 2026 before the 18:00 gate. Data is now pulled newest month first into monthly files. The training window starts at the earliest month fully pulled by 17:30 on Saturday (target 2025-07-01); that start month is written here, beside this amendment, before the walk-forward is run, and older months pulled later are not added to the headline. Walk-forward test months begin six months after the training start. The holdout is unchanged. IMBALNGC is requested with `boundary=N` server side; this changes download size only, not content.

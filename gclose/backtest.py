@@ -22,17 +22,21 @@ OUT.mkdir(parents=True, exist_ok=True)
 TRAIN_END = pd.Timestamp("2026-06-30 23:59", tz="UTC")   # holdout starts after this; opened once
 
 
+MIN_TRAIN_MONTHS = 6   # first test month = earliest month pulled + this many
+
+
 def load_features() -> pd.DataFrame:
-    prices = pd.read_parquet(RAW / "prices.parquet")
-    windfor = pd.read_parquet(RAW / "WINDFOR.parquet")
-    ndf = pd.read_parquet(RAW / "NDF.parquet")
-    imb = pd.read_parquet(RAW / "IMBALNGC.parquet")
-    return build(prices, windfor, ndf, imb)
+    from .ingest import load
+    return build(load("prices"), load("WINDFOR"), load("NDF"), load("IMBALNGC"))
 
 
-def walk_forward(f: pd.DataFrame, first_test="2023-01", last_test="2026-06") -> pd.DataFrame:
+def walk_forward(f: pd.DataFrame, first_test: str | None = None, last_test="2026-06") -> pd.DataFrame:
     """Retrain each month on everything before it, predict that month, for every model."""
     f = f[f["start_time"] <= TRAIN_END]
+    if first_test is None:
+        first = f["start_time"].min().tz_convert("UTC").tz_localize(None).to_period("M") + MIN_TRAIN_MONTHS
+        first_test = str(first)
+    print(f"walk-forward: train from {f['start_time'].min():%Y-%m}, test {first_test} to {last_test}")
     months = pd.period_range(first_test, last_test, freq="M")
     preds = []
     for m in months:
