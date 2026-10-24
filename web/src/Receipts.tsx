@@ -97,7 +97,10 @@ function LiveRecord() {
   const ledger = usePolled(LEDGER, LEDGER_REFRESH_MS, parseLedger);
   const commits = usePolled(COMMITS, COMMITS_REFRESH_MS, parseCommits);
   const rows = ledger.data;
-  const clean = rows?.filter((row) => !preFix(row)) ?? [];
+  // Two live processes once made the same call within a millisecond; the score counts each half hour once, and so does this table.
+  const clean = (rows?.filter((row) => !preFix(row)) ?? []).filter(
+    (row, i, all) => all.findIndex((other) => other.target_start === row.target_start) === i,
+  );
   const folded = (rows?.length ?? 0) - clean.length;
   const recent = clean.slice(-SHOWN_ROWS).reverse();
 
