@@ -57,6 +57,7 @@ python -m gclose.ingest pull 2022-01-01 2026-10-23               # newest month 
 python -m gclose.backtest                                        # walk-forward P(short) ladder, Brier with intervals
 python -m gclose.price_models                                    # boosted and ridge checks (about 1.5 minutes)
 python -m gclose.decide                                          # battery P&L for every policy, value of skill
+python -m gclose.export                                          # web/public/replay.json for the demo, real-data poison check
 ```
 
 The pulled months are committed under `data/raw/<dataset>/<YYYY-MM>.parquet`, so everything after `pull` reproduces with no network.

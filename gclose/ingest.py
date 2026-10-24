@@ -76,8 +76,9 @@ def _national(df: pd.DataFrame, dataset: str) -> pd.DataFrame:
 def fetch_prices_day(d: date) -> pd.DataFrame:
     """System sell/buy price and net imbalance volume for one settlement date.
 
-    The endpoint serves the refreshed (D+1) value, not the indicative one that printed
-    15 minutes after the period. created_at says when the served row was made.
+    From February 2024 the endpoint serves the value as refreshed the next day; before that,
+    the first print (about 52 minutes after the period starts). created_at says when the
+    served row was made; gclose.features.first_print_at turns it into a print time.
     """
     rows = _get(f"/balancing/settlement/system-prices/{d.isoformat()}").get("data", [])
     if not rows:
