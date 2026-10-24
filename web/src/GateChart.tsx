@@ -63,10 +63,12 @@ export default function GateChart({ r, d, now, poison, noiseSeed }: Props) {
     return [{ i, start, printsAt, poisoned, price: poisoned ? noise[k].price : row.price }];
   });
   const shown = steps.map((s) => s.price);
-  const yMax = Math.max(160, 1.15 * (d3.max(shown) ?? 0));
-  const yMin = Math.min(-20, (d3.min(shown) ?? 0) - 10);
-  const y = d3.scaleSymlog().constant(80).domain([yMin, yMax]).range([plotBottom, M.top]).clamp(true);
-  const gridValues = [0, 50, 100, 200, 400, 800].filter((v) => v <= yMax);
+  // Linear while prices are ordinary; a symlog scale once a spike is on screen, so £800 and £80 both read.
+  const yMax = Math.max(140, 1.12 * (d3.max(shown) ?? 0));
+  const yMin = Math.min(0, (d3.min(shown) ?? 0) - 10);
+  const spiky = yMax > 320;
+  const y = (spiky ? d3.scaleSymlog().constant(80) : d3.scaleLinear()).domain([yMin, yMax]).range([plotBottom, M.top]).clamp(true);
+  const gridValues = spiky ? [0, 50, 100, 200, 400, 800].filter((v) => v <= yMax) : y.ticks(4);
 
   const stepPath = d3.line<{ x: number; y: number }>().x((p) => p.x).y((p) => p.y)(
     steps.filter((s) => !s.poisoned).flatMap((s) => [{ x: x(s.start), y: y(s.price) }, { x: x(s.start + PERIOD_MS), y: y(s.price) }]),
