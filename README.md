@@ -30,7 +30,7 @@ Every table, interval and robustness check is in [docs/RESULTS.md](docs/RESULTS.
 | Logistic regression, fitted by maximum likelihood | 2nd-year statistics | Turns 16 gate-safe features into P(short) | Brier 0.2293, against 0.2409 for persistence |
 | Proper scoring rules: Brier score, log loss | 3rd-year statistics | Scores probabilities so that honest forecasting is the best strategy | A coin is 1 bit; ours is 0.9375, so it extracts 0.06 bits per half hour |
 | Murphy's decomposition, reliability diagram | Forecast verification | Separates calibration from resolution | Calibration near perfect (0.0003); resolution 2.2 times persistence's, but only 8% of the uncertainty |
-| Block bootstrap; Diebold-Mariano with Newey-West variance | Time series, econometrics | Honest uncertainty when errors are autocorrelated | Ours beats persistence by 0.0117 [0.0106, 0.0127]; Diebold-Mariano statistic -17 |
+| Block bootstrap; Diebold-Mariano with Newey-West variance | Time series, econometrics | Honest uncertainty when errors are autocorrelated: weeks are resampled whole, and the variance allows a week of lags (336 half hours) | Ours beats persistence by 0.0117 [0.0106, 0.0127]; Diebold-Mariano statistic -17 |
 | Law of total expectation, certainty equivalence | Probability, optimal control | E[price] = p × (price when short) + (1 - p) × (price when long). Cash is linear in price and the battery is too small to move it, so for the half hour being traded this one number is all the optimiser needs | Why a calibrated probability is enough: it maps straight to the expected price |
 | Dynamic programming: Bellman equation, backward induction | Algorithms, optimisation | Values every state of charge and re-plans each half hour (model predictive control) | Vectorised over 70,120 half hours: the whole study runs in seconds |
 | Two-state Markov chain | 2nd-year probability | Carries the forecast forward, fading at the side's own persistence | Tested, and too simple: the grid's memory decays more slowly than geometric. Fixing it is worth about £1 a day |
@@ -99,6 +99,14 @@ flowchart LR
 - **Known limitation.** From February 2024 Elexon serves each price as revised the next day, and the first print is not kept. In that era our price-based inputs use revised values that were not public at the gate (the timing rule itself is still enforced). We report both eras: before the switch, with clean first prints, ours beats the schedule by £9.4 a day and persistence by 0.0127 Brier; after it, by £2.7 and 0.0110.
 - **Reproducible.** The raw data is committed, so every number rebuilds offline. Two machines agree to the decimal on everything except the boosted model, which moves by up to £2 a day with floating-point differences in tree building.
 
+## Fine print
+
+- **What gate closure means here.** In GB, gate closure is one hour before each half hour: physical notifications lock and NESO takes over balancing. Trading itself can continue until the half hour starts (BSC modification P342). We model a battery whose physical position is fixed at gate closure, which is when its exposure to the imbalance price is decided. NESO's 2026 call for input on balancing reform recorded calls to move gate closure to 30 minutes, so how much an hour is worth is a live question.
+- **This is NIV chasing.** Trading on the expected direction of the system imbalance has a name. NESO's study of it (by FTI Consulting) found it reduces the GB-wide imbalance but can worsen local imbalances behind transmission constraints, and batteries increasingly set the marginal balancing price themselves. We model a 1 MW price-taker; at fleet scale this edge would be competed away.
+- **Skill against the base rate.** Always quoting the base rate scores Brier 0.2495 (the uncertainty term of the decomposition). Ours is 8.1% better (Brier skill score 0.081), persistence 3.4%, NESO's forecast 1.1%.
+- **How the value-of-skill curve is made.** Each probability is moved towards or away from the outcome, p_k = clip(y + k(p - y), 0, 1), and the same optimiser trades on it: k = 1 is our forecast, k = 0 knows the side, k > 1 is worse than ours. Other ways of degrading a forecast could give a different slope.
+- **What the live record can and cannot show.** A day of half hours proves the process: a frozen model, inputs public at the gate, every call on GitHub before its gate. It is far too short to prove skill; the four-year walk-forward and the holdout do that.
+
 ## Demo
 
 [`web/dist/index.html`](web/dist/index.html) is the whole demo in one file, data and fonts included: download it and open it in a browser, no install and no network needed. It replays one week of 2026 (the week with the widest range of prices, chosen without looking at the money) as the control room would have seen it. Prices print about 52 minutes after each half hour starts, the forecast's lamps light at each gate, the battery trades, and the wind map shows the forecast revisions the model saw. **Poison the future** (key P) replaces everything published after a cutoff with noise and shows that no decision before it moves. Below the replay, a slider scales the forecast's errors to show what skill is worth, and the live record is read straight from this repository.
@@ -151,8 +159,10 @@ ledger/                  the frozen model and every live decision, as pushed
 web/                     the demo: a replay at gate closure; dist/index.html is the built page
 ```
 
-## Data
+## Data and licence
 
 Elexon Insights API: `/balancing/settlement/system-prices/{date}` for prices and net imbalance volume, and `/datasets/WINDFOR`, `/datasets/NDF` and `/datasets/IMBALNGC` queried by publish window for forecast vintages. Contains BMRS data © Elexon Limited copyright and database right 2026, used under the BMRS Data Licence.
 
 Prior work by the author (an RMT spurious-factor paper, a systematic-trading repository) is cited for context only; no code from it is used. Nothing from Cabestan Quant Research is used.
+
+The code is MIT licensed (see [LICENSE](LICENSE)); the Elexon data in `data/raw/` stays under the BMRS Data Licence.
