@@ -101,8 +101,9 @@ row is the forecast's gain over the schedule, so its Sharpe ratio is an informat
 The chain policy fades the forecast as a two-state Markov chain would: autocorrelation at lag h equal to
 the lag-1 value to the power h. The side's measured autocorrelation decays much more slowly, so the grid
 has longer memory than that. Fading with the measured memory instead earns
-£49.26 a day against £48.30: the
-simplification costs about a pound a day, within the noise, so the protocol's policy stands.
+£49.26 a day against £48.30. The
+simplification costs about a pound a day, so we report it and keep the protocol's policy rather than
+change it after seeing the results.
 
 | lag, half hours | measured autocorrelation | geometric (Markov) |
 | :--- | ---: | ---: |

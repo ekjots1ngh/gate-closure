@@ -2,7 +2,7 @@
 START = 2022-01-01
 END = 2026-10-23
 
-.PHONY: test lint check data features backtest price_models decide report export reproduce
+.PHONY: test lint check data features backtest price_models decide report export reproduce live-check freeze live score holdout
 
 test:
 	python -m pytest -q
@@ -35,3 +35,19 @@ export: decide
 	python -m gclose.export
 
 reproduce: test report export
+
+# The live record and the holdout (need Elexon; see README)
+live-check:
+	python -m gclose.live check
+
+freeze:
+	python -m gclose.live freeze
+
+live:
+	python -m gclose.live run
+
+score:
+	python -m gclose.live score
+
+holdout:
+	python -m gclose.holdout

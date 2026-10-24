@@ -161,6 +161,13 @@ def fetch_vintages(dataset: str, start: date, end: date, days_per_call: int = 7,
     """Every national vintage of a forecast dataset published from start to end inclusive."""
     t0 = datetime(start.year, start.month, start.day, tzinfo=UTC)
     t1 = datetime(end.year, end.month, end.day, tzinfo=UTC) + timedelta(days=1)
+    return fetch_vintages_between(dataset, t0, t1, days_per_call, workers)
+
+
+def fetch_vintages_between(
+    dataset: str, t0: datetime, t1: datetime, days_per_call: int = 7, workers: int = 6
+) -> pd.DataFrame:
+    """Every national vintage of a forecast dataset published in [t0, t1), in parallel windows."""
     step = timedelta(days=days_per_call)
     windows = [(t, min(t + step, t1)) for t in pd.date_range(t0, t1, freq=step, inclusive="left")]
     with ThreadPoolExecutor(workers) as pool:

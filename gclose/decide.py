@@ -64,13 +64,13 @@ class Tables:
     value: np.ndarray  # (months, 48, K): value of each SoC level at the start of each slot
 
     @classmethod
-    def build(cls, table: pd.DataFrame, months: list[str]) -> Tables:
+    def build(cls, table: pd.DataFrame, starts: list[pd.Timestamp]) -> Tables:
+        """One set of tables per start: the LOOKBACK days whose price was public by the first gate after it."""
         slots = pd.Index(range(PERIODS_PER_DAY))
         columns: dict[str, list] = {
             name: [] for name in ("profile", "mu_short", "mu_long", "short_share", "side_autocorr", "side_memory")
         }
-        for month in months:
-            start = pd.Timestamp(f"{month}-01", tz="UTC")
+        for start in starts:
             history = table[(table["start_time"] >= start - LOOKBACK) & (table["created_at"] < start - GATE_LEAD)]
             slot = slot_of(history["start_time"])
             profile = history.groupby(slot)["ssp"].mean().reindex(slots).interpolate().bfill().ffill()
@@ -99,11 +99,11 @@ class TestPeriods:
     realised: np.ndarray  # settled price: decides cash, never actions
 
     @classmethod
-    def build(cls, table: pd.DataFrame) -> TestPeriods:
-        price_forecasts = pd.read_parquet(PRICE_FORECASTS).drop(columns=["short", "ssp"])
+    def build(cls, table: pd.DataFrame, forecasts: pd.DataFrame, price_forecasts: pd.DataFrame) -> TestPeriods:
+        """Test periods from walk-forward forecasts; the tables are rebuilt as of each month's start."""
+        price_forecasts = price_forecasts.drop(columns=["short", "ssp"])
         rows = (
-            pd.read_parquet(FORECASTS)
-            .merge(price_forecasts, on="start_time", how="left", validate="one_to_one")
+            forecasts.merge(price_forecasts, on="start_time", how="left", validate="one_to_one")
             .merge(table[["start_time", "price_newest"]], on="start_time", how="left", validate="one_to_one")
             .sort_values("start_time")
             .reset_index(drop=True)
@@ -113,7 +113,7 @@ class TestPeriods:
         months = sorted(month.unique())
         return cls(
             rows=rows,
-            tables=Tables.build(table, months),
+            tables=Tables.build(table, [pd.Timestamp(f"{m}-01", tz="UTC") for m in months]),
             month_idx=month.map({m: i for i, m in enumerate(months)}).to_numpy(),
             slot=slot_of(rows["start_time"]),
             day=(utc.dt.normalize() - pd.Timestamp("1970-01-01")).dt.days.to_numpy(),
@@ -289,6 +289,8 @@ def by_era(periods: TestPeriods, daily: pd.DataFrame) -> dict[str, dict]:
     eras["revised prices, 2024-02 to 2026-06"] = tuple(~mask for mask in eras["first prints, 2022-07 to 2024-01"])
     out = {}
     for era, (days, rows) in eras.items():
+        if not rows.any():
+            continue
         forecast_scores = {s["model"]: s for s in scores(periods.rows[rows])}
         out[era] = {
             "ours_minus_persistence_cal": forecast_scores["persistence_cal"]["ours_minus"],
@@ -331,7 +333,12 @@ class Study:
 def run_study() -> Study:
     """Every policy over the walk-forward test, and every summary the docs report."""
     table = load_table()
-    periods = TestPeriods.build(table)
+    periods = TestPeriods.build(table, pd.read_parquet(FORECASTS), pd.read_parquet(PRICE_FORECASTS))
+    return study(periods)
+
+
+def study(periods: TestPeriods) -> Study:
+    """Every policy and every summary, for any set of test periods (the walk-forward or the holdout)."""
     trajectories = {name: periods.trade(q) for name, q in policies(periods).items()}
     daily = pd.DataFrame({name: periods.daily(t.pnl) for name, t in trajectories.items()})
     results = {

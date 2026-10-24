@@ -30,13 +30,13 @@ class Split(NamedTuple):
     test: pd.Series  # boolean mask: the month's half hours
 
 
-def monthly_splits(table: pd.DataFrame) -> Iterator[Split]:
-    """One split per walk-forward month, oldest first.
+def monthly_splits(table: pd.DataFrame, first: str, last: str) -> Iterator[Split]:
+    """One split per month from `first` to `last` ("YYYY-MM"), oldest first.
 
     A row is a training row if its stored price was created before the month's first gate,
     T0 - GATE_LEAD, so the refit learns only outcomes that were public by then.
     """
-    for month in pd.period_range(FIRST_TEST_MONTH, LAST_TEST_MONTH, freq="M"):
+    for month in pd.period_range(first, last, freq="M"):
         t0 = month.start_time.tz_localize("UTC")
         t1 = (month + 1).start_time.tz_localize("UTC")
         yield Split(
@@ -44,11 +44,22 @@ def monthly_splits(table: pd.DataFrame) -> Iterator[Split]:
         )
 
 
-def walk_forward(table: pd.DataFrame, fit_predict: FitPredict) -> pd.DataFrame:
-    """Out-of-sample columns from `fit_predict(train, test)` for every test month, stacked."""
-    table = table[table["start_time"] < HOLDOUT_START]
+def walk_forward(
+    table: pd.DataFrame,
+    fit_predict: FitPredict,
+    first: str = FIRST_TEST_MONTH,
+    last: str = LAST_TEST_MONTH,
+    end: pd.Timestamp | None = HOLDOUT_START,
+) -> pd.DataFrame:
+    """Out-of-sample columns from `fit_predict(train, test)` for every month from `first` to `last`, stacked.
+
+    Rows from `end` onwards are dropped first, so by default the walk-forward cannot see the
+    holdout at all; only gclose.holdout passes end=None.
+    """
+    if end is not None:
+        table = table[table["start_time"] < end]
     months = []
-    for split in monthly_splits(table):
+    for split in monthly_splits(table, first, last):
         test = table[split.test]
         months.append(test[["start_time", "short", "ssp"]].assign(**fit_predict(table[split.train], test)))
     return pd.concat(months, ignore_index=True)

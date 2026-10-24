@@ -23,6 +23,6 @@ def test_base_rate_mix_reproduces_the_profile():
             "ssp": rng.normal(70, 30, len(t)) + 40 * short,
         }
     )
-    tables = Tables.build(table, ["2026-04"])
+    tables = Tables.build(table, [pd.Timestamp("2026-04-01", tz="UTC")])
     mix = tables.short_share * tables.mu_short + (1 - tables.short_share) * tables.mu_long
     np.testing.assert_allclose(mix, tables.profile, atol=1e-9)

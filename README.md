@@ -94,7 +94,8 @@ flowchart LR
 ## Honesty
 
 - **Pre-registered.** [`PROTOCOL.md`](PROTOCOL.md) fixed the question, baselines, battery, metrics and failure condition before any result existed. Every later change is a dated amendment saying what changed, why, and its effect, including the ones found by an independent code review.
-- **Held out.** July to October 2026 is sealed. It is opened once, after the model is frozen.
+- **Held out.** July to 23 October 2026 is sealed. `python -m gclose.holdout` opens it once, after the freeze, with the walk-forward's own recipe, and refuses to run a second time.
+- **Live.** From the freeze, `python -m gclose.live run` decides every half hour and pushes each decision to [`ledger/decisions.jsonl`](ledger/) about half an hour before that half hour's gate. The frozen model is [plain JSON](ledger/model.json) with a SHA-256 of its contents, and every line carries that hash, so anyone can recompute any decision. GitHub's timestamps are the receipt.
 - **Known limitation.** From February 2024 Elexon serves each price as revised the next day, and the first print is not kept. In that era our price-based inputs use revised values that were not public at the gate (the timing rule itself is still enforced). We report both eras: before the switch, with clean first prints, ours beats the schedule by £9.4 a day and persistence by 0.0127 Brier; after it, by £2.7 and 0.0110.
 - **Reproducible.** The raw data is committed, so every number rebuilds offline. Two machines agree to the decimal on everything except the boosted model, which moves by up to £2 a day with floating-point differences in tree building.
 
@@ -106,7 +107,7 @@ Python 3.11 or later, any OS. About three minutes from a clean clone, with no ne
 pip install -e ".[dev]"            # or: pip install -r requirements.txt
 make reproduce                     # or run the lines below in order
 
-python -m pytest -q                # 17 tests, about 15 s
+python -m pytest -q                # 27 tests, about 15 s
 python -m gclose.features          # gate-safe feature table from data/raw (12 s)
 python -m gclose.backtest          # walk-forward forecasts, Brier and log loss
 python -m gclose.price_models      # the boosted and ridge checks (1.5 min)
@@ -134,10 +135,13 @@ gclose/stats.py          bootstrap, scoring rules, Murphy's decomposition, Diebo
 gclose/receipts.py       the poison check end to end on a real week
 gclose/report.py         docs/RESULTS.md and the figures, rendered from results.json
 gclose/figures.py        README figures in light and dark
+gclose/live.py           the frozen model and the live record: check, freeze, run, score, replay
+gclose/holdout.py        opens the holdout, once
 gclose/export.py         replay data for the demo
 gclose/store.sql         a TimescaleDB sketch for the Tiger Data track (not used by the pipeline)
 tests/                   the poison test with planted leaks; the optimiser against a scalar loop
 data/raw/                Elexon data, January 2022 to October 2026
+ledger/                  the frozen model and every live decision, as pushed
 web/                     demo (in progress)
 ```
 
