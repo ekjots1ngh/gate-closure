@@ -3,9 +3,11 @@ import { hhmm, type Replay } from './data';
 
 const LEDGER = 'https://raw.githubusercontent.com/ekjots1ngh/gate-closure/main/ledger/decisions.jsonl';
 const REFRESH_MS = 60_000;
-// Mirrors PRE_FIX in gclose/live.py: decided by the process still running the code from before
-// PROTOCOL amendment 8. They stay in the ledger and are not scored.
-const PRE_FIX = new Set(['2026-10-24T18:30:00+00:00']);
+// Mirrors gclose/live.py: the process still running the code from before PROTOCOL amendment 8
+// decided 28 minutes before each gate, where the fixed code decides 6 minutes before. Its lines
+// stay in the ledger and are not scored.
+const PRE_FIX_LEAD_MIN = 15;
+const preFix = (row: Decision) => (Date.parse(row.gate) - Date.parse(row.decided_at)) / 60_000 > PRE_FIX_LEAD_MIN;
 
 interface Decision {
   target_start: string;
@@ -75,7 +77,7 @@ function LiveLedger() {
             {rows.slice(-9).reverse().map((row) => {
               const lead = (Date.parse(row.gate) - Date.parse(row.decided_at)) / 60_000;
               return (
-                <tr key={row.target_start} className={PRE_FIX.has(row.target_start) ? 'pre-fix' : undefined}>
+                <tr key={row.target_start} className={preFix(row) ? 'pre-fix' : undefined}>
                   <td>{row.target_start.slice(5, 16).replace('T', ' ')}</td>
                   <td>{row.decided_at.slice(11, 16)}</td>
                   <td>{lead.toFixed(0)} min</td>
@@ -88,10 +90,10 @@ function LiveLedger() {
         </table>
       )}
       {rows && <p className="note">Model {rows[rows.length - 1].model_sha256.slice(0, 12)}, {rows.length} decisions so far.</p>}
-      {rows?.some((row) => PRE_FIX.has(row.target_start)) && (
+      {rows?.some(preFix) && (
         <p className="note">
-          Struck through: decided by the first process, still running the code from before the fix in amendment 8.
-          The ledger is never edited, so the line stays, and the score leaves it out.
+          Struck through: decided by the first process, still running the code from before the fix in amendment 8, and
+          recognisable by its 28-minute lead. The ledger is never edited, so the lines stay, and the score leaves them out.
         </p>
       )}
     </div>

@@ -47,10 +47,16 @@ RECENT = timedelta(days=3)  # raw data fetched each run: enough for every lag an
 RUN_AT_MINUTES = (24, 54)  # six minutes before each gate: late enough for t-4's price to have printed
 HALF_HOUR = pd.Timedelta(minutes=30)
 
-# Lines decided by the first process, which was still running the code from before PROTOCOL
-# amendment 8 after the fixed one had started. The ledger is append-only, so they stay in it;
-# they are listed in the README and left out of the score.
-PRE_FIX = ("2026-10-24T18:30:00+00:00",)
+# The first live process kept running the code from before PROTOCOL amendment 8 after the fixed
+# one had started, deciding 28 minutes before each gate where the fixed code decides 6 minutes
+# before. The ledger is append-only, so its lines stay; they are listed in the README and left
+# out of the score, recognised by that lead.
+PRE_FIX_LEAD = pd.Timedelta(minutes=15)
+
+
+def pre_fix(entries: pd.DataFrame) -> pd.Series:
+    """True for each ledger line decided by the pre-fix process (more than PRE_FIX_LEAD before its gate)."""
+    return pd.to_datetime(entries["gate"]) - pd.to_datetime(entries["decided_at"]) > PRE_FIX_LEAD
 
 
 # ---------------------------------------------------------------- the frozen model
@@ -275,13 +281,13 @@ def run_forever() -> None:
 
 def score(prices: pd.DataFrame) -> dict:
     """Ours against the no-forecast schedule over every ledger period whose price has printed,
-    leaving out the PRE_FIX lines."""
+    leaving out the pre-fix lines."""
     ledger = pd.DataFrame(read_ledger())
     if ledger.empty:
         raise SystemExit("the ledger is empty")
-    entries = ledger[~ledger["target_start"].isin(PRE_FIX)].assign(
-        target_start=lambda e: pd.to_datetime(e["target_start"], utc=True)
-    )
+    entries = ledger[~pre_fix(ledger)].assign(target_start=lambda e: pd.to_datetime(e["target_start"], utc=True))
+    if entries.empty:
+        raise SystemExit("every ledger line so far is from the pre-fix process")
     settled = entries.merge(prices[["start_time", "ssp", "niv"]], left_on="target_start", right_on="start_time")
     if settled.empty:
         raise SystemExit("no ledger period has printed yet")
@@ -307,7 +313,7 @@ def score(prices: pd.DataFrame) -> dict:
         "brier": float(np.mean((settled["p_short"].to_numpy() - short) ** 2)),
         "ours_gbp": float(ours.sum()),
         "schedule_gbp": float(schedule.pnl.sum()),
-        "left_out_pre_fix": [start for start in PRE_FIX if start in set(ledger["target_start"])],
+        "left_out_pre_fix": ledger.loc[pre_fix(ledger), "target_start"].tolist(),
         "every_line_decided_before_its_gate": bool(
             (pd.to_datetime(ledger["decided_at"]) < pd.to_datetime(ledger["gate"])).all()
         ),
