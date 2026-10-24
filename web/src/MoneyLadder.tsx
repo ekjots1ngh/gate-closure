@@ -31,15 +31,11 @@ export default function MoneyLadder({ r }: { r: Replay }) {
   const x = d3.scaleLinear().domain([0, 380]).range([M.left, width - M.right]);
   const schedule = r.money['chain/schedule'].value;
   const bottom = M.top + ROWS.length * ROW_H;
-  const [firstPrints, revised] = Object.values(r.by_era);   // export writes them in date order
 
   return (
     <div className="inset" ref={ref}>
       <h2>Where the money is</h2>
-      <p>
-        Pounds a day over four years, with 90% intervals from resampling whole weeks. The two ceilings, drawn open,
-        show how much skill is left on the table.
-      </p>
+      <p>Pounds a day over four years, with 90% intervals. The ceilings, drawn open, are the skill left on the table.</p>
       <svg width={width} height={height} role="img" aria-label="Money per day for every policy, with the ceilings">
         {x.ticks(4).map((v) => (
           <g key={v}>
@@ -67,15 +63,9 @@ export default function MoneyLadder({ r }: { r: Replay }) {
         <line x1={x(schedule)} x2={x(schedule)} y1={M.top - 2} y2={bottom} stroke="var(--schedule)" strokeDasharray="4 3" />
       </svg>
       <p className="note">
-        Ours beats the schedule by {interval(r.gain['chain/ours'])} a day, paired week by week. Leaving out the 1% of
-        half hours with the most extreme prices: {interval(r.gain_without_spike_half_hours['chain/ours'])}. Leaving out the
-        1% of days with the most at stake: {interval(r.gain_without_top_days['chain/ours'])}, so a good part of the edge
-        comes from a handful of days.
-      </p>
-      <p className="note">
-        Split where Elexon began serving revised prices: before February 2024, on clean first prints, ours made{' '}
-        {gbp(firstPrints.chain_ours, 1)} a day against {gbp(firstPrints.schedule, 1)}; since then{' '}
-        {gbp(revised.chain_ours, 1)} against {gbp(revised.schedule, 1)}.
+        Ours minus the schedule, paired week by week: {interval(r.gain['chain/ours'])} a day. Without the most extreme 1%
+        of half hours, {interval(r.gain_without_spike_half_hours['chain/ours'])}; without the 1% of days with the most at
+        stake, {interval(r.gain_without_top_days['chain/ours'])}, so a good part of the edge comes from a few days.
       </p>
     </div>
   );

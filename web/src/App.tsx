@@ -1,32 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import replay from '../public/replay.json';
 import Battery from './Battery';
-import { dayLabel, dayShort, derive, gbp, GATE_MS, hhmm, PERIOD_MS, periodAt, type Derived, type Replay } from './data';
+import {
+  dayLabel, dayShort, derive, gbp, GATE_MS, hhmm, num, PERIOD_MS, periodAt, printedCount, side, sure, tally, tone, verb,
+  type Derived, type Replay,
+} from './data';
 import GateChart from './GateChart';
 import MapPanel from './MapPanel';
 import MoneyLadder from './MoneyLadder';
-import Receipts, { LiveBadge } from './Receipts';
+import Receipts from './Receipts';
+import Reliability from './Reliability';
 import Skill from './Skill';
 
 const R = replay as unknown as Replay;
 const SPEEDS = [1, 4, 16];                     // half hours of replay per second
-const START_OFFSET = 10 * 3_600_000;           // open on Monday 10:00, so the chart has history
+// Open on Tuesday 16:00: within ten seconds the battery discharges into the week's dearest evening.
+const START_OFFSET = 40 * 3_600_000;
+const REPO = 'https://github.com/ekjots1ngh/gate-closure';
 
-/** The week as a strip under the masthead: where the replay is, and a click to go anywhere. */
-function WeekStrip({ d, now, end, seek }: { d: Derived; now: number; end: number; seek: (t: number) => void }) {
-  const days = Array.from({ length: 7 }, (_, k) => d.t0 + k * 48 * PERIOD_MS);
-  const span = end - d.t0;
-  const at = (t: number) => `${(100 * (t - d.t0)) / span}%`;
-  return (
-    <div className="week" role="slider" aria-label="Position in the week" aria-valuemin={0} aria-valuemax={100}
-      aria-valuenow={Math.round((100 * (now - d.t0)) / span)} tabIndex={0}
-      onClick={(e) => { const box = e.currentTarget.getBoundingClientRect(); seek(d.t0 + Math.min(1, Math.max(0, (e.clientX - box.left) / box.width)) * span); }}>
-      {days.map((t) => <span key={t} className="day-mark" style={{ left: at(t) }}>{dayShort(t)}</span>)}
-      <span className="week-elapsed" style={{ width: at(now) }} />
-      <span className="week-now" style={{ left: at(now) }} />
-    </div>
-  );
-}
+const brier = (model: string) => R.forecasts.find((f) => f.model === model)!.brier;
 
 export default function App() {
   const d = useMemo(() => derive(R), []);
@@ -69,6 +61,8 @@ export default function App() {
       return !on;
     });
   }, [d.cutoff]);
+  const nextSpeed = () => setSpeed((s) => SPEEDS[(SPEEDS.indexOf(s) + 1) % SPEEDS.length]);
+  const seek = (t: number) => { setPoison(false); setPlaying(false); setNow(t); };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -85,43 +79,50 @@ export default function App() {
   }, [end, d.t0, togglePoison]);
 
   const gate = Math.floor(now / PERIOD_MS) * PERIOD_MS;
-  const decided = R.tape[(gate + GATE_MS - d.t0) / PERIOD_MS] ?? null;
+  const target = gate + GATE_MS;
+  const printed = printedCount(d, now);
+  const newestKnown = printedCount(d, gate) - 1;
   const ours = R.money['chain/ours'].value;
   const schedule = R.money['chain/schedule'].value;
+  const gain = R.gain['chain/ours'].gbp;
 
   return (
     <>
       <div className="show">
         <header className="masthead">
-          <h1>Gate Closure<span>a week of the GB grid, replayed</span></h1>
-          <div className="clock" aria-live="off">
-            <span className="time readout">{hhmm(now)}</span>
-            <span className="day">{dayLabel(now)} 2026, UTC</span>
-            <LiveBadge />
+          <div>
+            <h1>Gate Closure</h1>
+            <p className="what">
+              Every half hour the GB grid is short of power or long. An hour before, using only what was public, we call
+              which; a battery trades on the call; the price arrives later.
+            </p>
           </div>
-          <div className="controls">
-            <button onClick={() => { setPoison(false); setPlaying((p) => !p); }} aria-pressed={playing}>{playing ? 'Pause' : 'Play'}</button>
-            {SPEEDS.map((s) => (
-              <button key={s} onClick={() => setSpeed(s)} aria-pressed={speed === s} aria-label={`${s} half hours a second`}>{s}×</button>
-            ))}
-            <button className="poison" onClick={togglePoison} aria-pressed={poison}>Poison the future</button>
+          <div className="clock" aria-live="off">
+            <div className="time readout">{hhmm(now)}</div>
+            <div className="day">{dayLabel(now)} 2026, UTC</div>
+          </div>
+          <div>
+            <div className="controls">
+              <button onClick={() => { setPoison(false); setPlaying((p) => !p); }} aria-pressed={playing} title="Space">{playing ? 'Pause' : 'Play'}</button>
+              <button className="speed" onClick={nextSpeed} title="Half hours a second; keys 1, 2, 3">{speed}×</button>
+              <button className="poison" onClick={togglePoison} aria-pressed={poison} title="P">Poison the future</button>
+            </div>
+            <p className="four-years">
+              Four years out of sample: Brier <b>{brier('ours').value.toFixed(3)}</b> against {brier('persistence_cal').value.toFixed(3)} for
+              persistence and {brier('indicated').value.toFixed(3)} for NESO; <b>{gbp(ours, 1)}</b> a day against {gbp(schedule, 1)} with no forecast.
+            </p>
           </div>
         </header>
-        <WeekStrip d={d} now={now} end={end} seek={(t) => { setPoison(false); setPlaying(false); setNow(t); }} />
+        <WeekStrip d={d} now={now} end={end} printed={printed} seek={seek} />
 
         <main className="deck">
           <section className="region map">
-            <h2>What the model saw at the gate</h2>
-            <MapPanel decided={decided} pulseKey={gate} />
+            <MapPanel r={R} d={d} now={now} />
           </section>
           <section className="region gate">
-            <h2>The gate: an hour before each half hour, a forecast and a trade; the price arrives 52 minutes after it starts</h2>
+            <Headline gate={gate} target={target} newestKnown={newestKnown} d={d} poison={poison} />
             <GateChart r={R} d={d} now={now} poison={poison} noiseSeed={noiseSeed} />
-            <p className="note">
-              {poison
-                ? 'Everything published after the cutoff is noise. Every lamp to the left of it is unchanged: rebuilt from the poisoned data, 0 of 170 decisions moved.'
-                : 'Amber: the grid is short of power and prices run high. Blue: long. Space plays and pauses, arrows step a half hour, 1 2 3 set the speed, P poisons the future.'}
-            </p>
+            <Legend printed={printed} poison={poison} />
           </section>
           <section className="region battery">
             <Battery r={R} d={d} now={now} period={periodAt(d, now)} />
@@ -130,27 +131,91 @@ export default function App() {
       </div>
 
       <div className="record">
-        <p className="caption">
-          {R.meta.replay_rule} The fixed schedule won this week. Over four years of walk-forward testing the forecast earns{' '}
-          {gbp(ours, 1)} a day against {gbp(schedule, 1)} for the schedule; the record below is that test.
-        </p>
-
         <div className="section">
-          <h2>Four years, in two numbers</h2>
+          <h2>Four years, out of sample</h2>
+          <div className="figures headline-figures">
+            <div><span className="big">{brier('ours').value.toFixed(3)}</span><span className="label">Brier score, against {brier('persistence_cal').value.toFixed(3)} for persistence and {brier('indicated').value.toFixed(3)} for NESO</span></div>
+            <div><span className="big">{gbp(ours, 1)}</span><span className="label">a day with the forecast, against {gbp(schedule, 1)} with none</span></div>
+            <div><span className="big">+{gbp(gain.value, 1)}</span><span className="label">a day, paired by week; 90% interval £{num(gain.lo, 1)} to £{num(gain.hi, 1)}</span></div>
+          </div>
           <p className="lede">
-            The forecast is clearly better than persistence and than NESO's own: Brier 0.229 against 0.241 and 0.247, a
-            difference the Diebold-Mariano test puts at 17 standard errors. It is almost perfectly calibrated, but rarely
-            confident, and that is why it is worth only about £5 a day more than no forecast at all.
+            July 2022 to June 2026, 70,120 half hours, refitted every month on what was public at the time.
+            The forecast is clearly better than both baselines, and calibrated, but rarely confident: that is why it is worth
+            only about £5 a day.
           </p>
+          <Reliability r={R} />
           <Skill r={R} />
-          <MoneyLadder r={R} />
+          <div className="span"><MoneyLadder r={R} /></div>
         </div>
 
         <div className="section">
           <h2>Receipts</h2>
           <Receipts r={R} onPoison={() => { togglePoison(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
         </div>
+        <p className="colophon">
+          Pre-registered in <a href={`${REPO}/blob/main/PROTOCOL.md`} target="_blank" rel="noreferrer">PROTOCOL.md</a> before the first
+          result; every change since is a dated amendment. Code, data and every number: <a href={REPO} target="_blank" rel="noreferrer">github.com/ekjots1ngh/gate-closure</a>.
+          Elexon BMRS data © Elexon Limited. Keys: space plays and pauses, arrows step a half hour, 1 2 3 set the speed, P poisons the future.
+        </p>
       </div>
     </>
+  );
+}
+
+/** One line that narrates the latest gate: the call just made, and how the newest printed price turned out. */
+function Headline({ gate, target, newestKnown, d, poison }: { gate: number; target: number; newestKnown: number; d: Derived; poison: boolean }) {
+  if (poison) return <p className="headline">The future is poisoned: everything published after the line is noise. <span className="soft">Every call before it is unchanged.</span></p>;
+  const call = R.tape[(target - d.t0) / PERIOD_MS];
+  const known = newestKnown >= 0 ? R.tape[newestKnown] : null;
+  if (!call) return <p className="headline">The end of the week.</p>;
+  const hit = known && (known.p_ours >= 0.5) === (known.short === 1);
+  return (
+    <p className="headline">
+      {hhmm(gate)} gate: we call {hhmm(target)} <span style={{ color: tone(side(call.p_ours)) }}>{side(call.p_ours)}, {sure(call.p_ours)}%</span>, and {verb(call.ours.action)}.{' '}
+      {known && (
+        <span className="soft">
+          Newest price: {hhmm(d.starts[newestKnown])} printed {gbp(known.price)}, the grid was {known.short ? 'short' : 'long'}; we had called it {hit ? 'right' : 'wrong'}.
+        </span>
+      )}
+    </p>
+  );
+}
+
+/** The legend for the call and the outcome, and the week's running score. */
+function Legend({ printed, poison }: { printed: number; poison: boolean }) {
+  const score = tally(R, printed);
+  return (
+    <p className="legend-line">
+      <span className="swatch" style={{ background: 'var(--short)' }} /> short, prices high
+      <span className="swatch" style={{ background: 'var(--long)' }} /> long, prices low
+      <span className="sep">Bar height: how sure the call was.</span>
+      {!poison && score.n > 0 && (
+        <span className="score">
+          This week so far: {score.right} of {score.n} sides right; Brier {score.ours.toFixed(3)} against {score.persistence.toFixed(3)} for persistence.
+        </span>
+      )}
+    </p>
+  );
+}
+
+/** The week as a strip under the masthead: each printed half hour in its outcome's colour, and a click to go anywhere. */
+function WeekStrip({ d, now, end, printed, seek }: { d: Derived; now: number; end: number; printed: number; seek: (t: number) => void }) {
+  const days = Array.from({ length: 7 }, (_, k) => d.t0 + k * 48 * PERIOD_MS);
+  const span = end - d.t0;
+  const at = (t: number) => `${(100 * (t - d.t0)) / span}%`;
+  const slots = span / PERIOD_MS;
+  return (
+    <div className="week" role="slider" aria-label="Position in the week" aria-valuemin={0} aria-valuemax={100}
+      aria-valuenow={Math.round((100 * (now - d.t0)) / span)} tabIndex={0}
+      onClick={(e) => { const box = e.currentTarget.getBoundingClientRect(); seek(d.t0 + Math.min(1, Math.max(0, (e.clientX - box.left) / box.width)) * span); }}>
+      {days.map((t) => <span key={t} className="day-mark" style={{ left: at(t) }}>{dayShort(t)}</span>)}
+      <svg viewBox={`0 0 ${slots} 1`} preserveAspectRatio="none" aria-hidden="true">
+        <rect x={0} y={0} width={slots} height={1} fill="var(--lamp-off)" />
+        {R.tape.slice(0, printed).map((row, i) => (
+          <rect key={i} x={i} y={0} width={1} height={1} fill={row.short ? 'var(--short)' : 'var(--long)'} />
+        ))}
+      </svg>
+      <span className="week-now" style={{ left: at(now) }} />
+    </div>
   );
 }

@@ -95,22 +95,23 @@ export const num = (x: number, dp: number) => {
   const s = Math.abs(x).toFixed(dp);
   return `${x < 0 ? '−' : ''}${s}`;
 };
-export const pct = (x: number, dp = 1) => `${num(x * 100, dp)}%`;
+/** The side a probability calls, and how sure it is: 0.46 calls long, 54% sure. */
+export const side = (p: number): 'short' | 'long' => (p >= 0.5 ? 'short' : 'long');
+export const sure = (p: number) => Math.round(100 * Math.max(p, 1 - p));
+export const tone = (s: 'short' | 'long') => (s === 'short' ? 'var(--short)' : 'var(--long)');
+export const verb = (action: number) => (action > 0 ? 'discharge' : action < 0 ? 'charge' : 'hold');
 
-/** Display names for forecast sources; the family (one step or chain) is shown separately. */
-/** Display names for forecasters; the family (one step or chain) is shown separately. */
-export const NAMES: Record<string, string> = {
-  schedule: 'No forecast, fixed schedule',
-  ours: 'Ours',
-  boosted: 'Boosted classifier',
-  persistence_cal: 'Persistence, calibrated',
-  persistence_raw: 'Persistence, raw',
-  indicated: 'NESO indicated imbalance',
-  side_oracle: 'Knowing the side an hour early',
-  coin: 'Coin flip',
-  'price/ridge': 'Price forecast, ridge',
-  'price/boosted': 'Price forecast, boosted',
-  'price/last_seen': 'Last price seen',
-  'price/oracle': 'Knowing the price an hour early',
-  hindsight: 'Perfect hindsight, every price known',
-};
+/** The week so far: sides called right among the half hours whose price has printed, and both Brier scores. */
+export function tally(r: Replay, printed: number) {
+  let right = 0;
+  let ours = 0;
+  let persistence = 0;
+  for (let i = 0; i < printed; i++) {
+    const row = r.tape[i];
+    if ((row.p_ours >= 0.5) === (row.short === 1)) right += 1;
+    ours += (row.p_ours - row.short) ** 2;
+    persistence += (row.p_persistence_cal - row.short) ** 2;
+  }
+  return { n: printed, right, ours: ours / Math.max(printed, 1), persistence: persistence / Math.max(printed, 1) };
+}
+

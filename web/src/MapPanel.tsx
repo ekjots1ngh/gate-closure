@@ -1,8 +1,7 @@
 import * as d3 from 'd3';
 import { useMemo } from 'react';
-import type { Row } from './data';
+import { gbp, hhmm, PERIOD_MS, printedCount, tone, type Derived, type Replay } from './data';
 import gb from './gb.json';
-import { lamp } from './GateChart';
 import { useSize } from './useSize';
 
 /** Major offshore wind farms: approximate positions and capacities in MW, for orientation only. */
@@ -17,83 +16,73 @@ const FARMS: [string, number, number, number][] = [
   ['Beatrice', -3.09, 58.25, 588], ['Seagreen', -1.76, 56.58, 1075], ['Neart na Gaoithe', -2.32, 56.27, 450],
   ['Kincardine', -1.85, 57.01, 50], ['Hywind Scotland', -1.35, 57.48, 30], ['Robin Rigg', -3.72, 54.75, 174],
 ];
-const GREAT_BRITAIN = '826';   // the UK feature; Ireland (372) is drawn but not part of this grid
+const WIND_FULL_MW = 15_000;   // a national wind forecast this high lights the farms fully
 
 const mw = (x: number | null) => (x === null ? 'unknown' : `${Math.round(x).toLocaleString('en-GB')} MW`);
-const signed = (x: number | null) => (x === null ? '' : x === 0 ? 'no change' : `${x > 0 ? '+' : '−'}${Math.round(Math.abs(x)).toLocaleString('en-GB')} MW`);
+const revised = (x: number | null) =>
+  x === null ? '' : x === 0 ? 'unrevised' : `${x > 0 ? '+' : '−'}${Math.round(Math.abs(x)).toLocaleString('en-GB')} revised`;
 
 interface Props {
-  decided: Row | null;   // the half hour decided at the latest gate
-  pulseKey: number;      // changes at every gate, so the lamps pulse once per decision
+  r: Replay;
+  d: Derived;
+  now: number;
 }
 
-/**
- * Great Britain, tinted with the forecast for the period just decided, with the offshore wind
- * farms lit by the latest revision to the national wind forecast; below, what the model saw.
- */
-export default function MapPanel({ decided, pulseKey }: Props) {
-  const [ref, { width, height }] = useSize<HTMLDivElement>({ width: 320, height: 420 });
+/** What the model saw at the latest gate: the newest price and the forecasts, and the wind across Great Britain. */
+export default function MapPanel({ r, d, now }: Props) {
+  const [ref, { width, height }] = useSize<HTMLDivElement>({ width: 280, height: 260 });
   const path = useMemo(() => {
     const frame = { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [[-8.2, 49.8], [3.0, 59.3]] } };
-    const projection = d3.geoMercator().fitExtent([[6, 6], [width - 6, height - 6]], frame as d3.GeoPermissibleObjects);
+    const projection = d3.geoMercator().fitExtent([[4, 4], [width - 4, height - 4]], frame as d3.GeoPermissibleObjects);
     return { projection, draw: d3.geoPath(projection) };
   }, [width, height]);
 
-  const revision = decided?.wind_revision_mw ?? null;
-  const cut = (revision ?? 0) < 0;
-  const strength = Math.min(1, Math.abs(revision ?? 0) / 800);
-  const windColour = cut ? 'var(--short)' : 'var(--long)';
-  const forecast = decided ? lamp(decided.p_ours) : null;
-  const indicated = decided?.indicated_latest_mw ?? null;
+  const gate = Math.floor(now / PERIOD_MS) * PERIOD_MS;
+  const row = r.tape[(gate + 2 * PERIOD_MS - d.t0) / PERIOD_MS] ?? null;   // the period decided at this gate
+  const known = printedCount(d, gate) - 1;                                                  // the newest price public at the gate
+  const newest = known >= 0 ? r.tape[known] : null;
+  const wind = row?.wind_latest_mw ?? null;
+  const strength = Math.min(1, (wind ?? 0) / WIND_FULL_MW);
+  const indicated = row?.indicated_latest_mw ?? null;
 
   return (
     <>
-      <div ref={ref} className="fill">
-        <svg width={width} height={height} role="img" aria-label="Great Britain, tinted with the forecast, and its offshore wind farms">
+      <h2>What the model saw at the {hhmm(gate)} gate</h2>
+      <div className="readouts">
+        <span className="label">Newest price</span>
+        <span className="value readout">{newest ? gbp(newest.price) : 'unknown'}</span>
+        <span className="delta">
+          {newest && <>{hhmm(d.starts[known])}, <span style={{ color: tone(newest.short ? 'short' : 'long') }}>{newest.short ? 'short' : 'long'}</span></>}
+        </span>
+        <span className="label">Wind forecast</span>
+        <span className="value readout">{mw(wind)}</span>
+        <span className="delta readout">{revised(row?.wind_revision_mw ?? null)}</span>
+        <span className="label">Demand forecast</span>
+        <span className="value readout">{mw(row?.demand_latest_mw ?? null)}</span>
+        <span className="delta readout">{revised(row?.demand_revision_mw ?? null)}</span>
+        <span className="label">NESO imbalance</span>
+        <span className="value readout">{indicated === null ? 'unknown' : mw(Math.abs(indicated))}</span>
+        <span className="delta">
+          {indicated !== null && <span style={{ color: tone(indicated > 0 ? 'long' : 'short') }}>{indicated > 0 ? 'surplus, long' : 'deficit, short'}</span>}
+        </span>
+      </div>
+      <div ref={ref} className="fill map-frame">
+        <svg width={width} height={height} role="img" aria-label="Great Britain and its offshore wind farms, lit by the national wind forecast">
           {(gb as unknown as d3.ExtendedFeatureCollection).features.map((f) => (
-            <g key={String(f.id)}>
-              <path d={path.draw(f) ?? ''} fill="var(--land)" stroke="var(--rule)" strokeWidth={0.8} />
-              {String(f.id) === GREAT_BRITAIN && forecast && (
-                <path className="tint" d={path.draw(f) ?? ''} fill={forecast.fill} fillOpacity={0.08 + 0.45 * Math.abs(decided!.p_ours - 0.5) * 2} />
-              )}
-            </g>
+            <path key={String(f.id)} d={path.draw(f) ?? ''} fill="var(--land)" stroke="var(--rule)" strokeWidth={0.8} />
           ))}
           {FARMS.map(([name, lon, lat, capacity]) => {
             const [cx, cy] = path.projection([lon, lat])!;
-            const r = Math.max(2.5, Math.sqrt(capacity) / 5.5);
             return (
-              <g key={name}>
+              <circle key={name} className="lamp" cx={cx} cy={cy} r={Math.max(2.2, Math.sqrt(capacity) / 6)}
+                fill="var(--ink)" opacity={0.18 + 0.72 * strength}>
                 <title>{`${name}, about ${capacity} MW`}</title>
-                <circle className="lamp" cx={cx} cy={cy} r={r} fill={windColour} opacity={0.3 + 0.7 * strength} />
-                <circle key={pulseKey} className="pulse" cx={cx} cy={cy} r={r} stroke={windColour} />
-              </g>
+              </circle>
             );
           })}
         </svg>
       </div>
-      <div className="readouts" aria-label="What the model saw at the gate">
-        <span className="label">Wind forecast</span>
-        <span className="value readout">{mw(decided?.wind_latest_mw ?? null)}</span>
-        <span className="delta readout" style={revision ? { color: windColour } : undefined}>{signed(revision)}{revision ? ' revision' : ''}</span>
-        <span className="label">Demand forecast</span>
-        <span className="value readout">{mw(decided?.demand_latest_mw ?? null)}</span>
-        <span className="delta readout">{signed(decided?.demand_revision_mw ?? null)}</span>
-        <span className="label">NESO indicated</span>
-        <span className="value readout">{indicated === null ? 'unknown' : mw(Math.abs(indicated))}</span>
-        <span className="delta">{indicated === null ? '' : indicated > 0 ? 'surplus, long' : 'deficit, short'}</span>
-        <div className="verdict">
-          <span className="label">Our forecast for {decided ? decided.t.slice(11, 16) : 'the next half hour'}</span>
-          {forecast && decided && (
-            <span className="big readout" style={{ color: forecast.fill }}>
-              {decided.p_ours >= 0.5 ? 'short' : 'long'} {(100 * Math.max(decided.p_ours, 1 - decided.p_ours)).toFixed(0)}%
-            </span>
-          )}
-        </div>
-      </div>
-      <p className="note">
-        Newest versions published before the gate. A late cut to the wind forecast is how the grid ends up short; the lamps
-        mark major offshore wind farms at approximate positions, sized by capacity.
-      </p>
+      <p className="legend">Offshore wind farms, sized by capacity, lit by the national wind forecast.</p>
     </>
   );
 }
