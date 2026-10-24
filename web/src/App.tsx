@@ -69,73 +69,70 @@ export default function App() {
   }, [end, d.t0, togglePoison]);
 
   const gate = Math.floor(now / PERIOD_MS) * PERIOD_MS;
-  const decided = R.tape[(gate + GATE_MS - d.t0) / PERIOD_MS];
+  const decided = R.tape[(gate + GATE_MS - d.t0) / PERIOD_MS] ?? null;
   const ours = R.money['chain/ours'].value;
   const schedule = R.money['chain/schedule'].value;
 
   return (
-    <div className="board">
-      <header className="masthead">
-        <div>
-          <h1>Gate Closure</h1>
-          <p>
-            A week of the GB grid, replayed. An hour before each half hour, a forecast says whether the grid will be short
-            of power or long, and a battery trades on it. Then the price arrives.
-          </p>
-        </div>
-        <div className="clock" aria-live="off">
-          <div className="time">{hhmm(now)}</div>
-          <div className="day">{dayLabel(now)} 2026, UTC</div>
-        </div>
-        <div className="controls">
-          <button onClick={() => { setPoison(false); setPlaying((p) => !p); }} aria-pressed={playing}>{playing ? 'Pause' : 'Play'}</button>
-          {SPEEDS.map((s) => (
-            <button key={s} onClick={() => setSpeed(s)} aria-pressed={speed === s} aria-label={`${s} half hours a second`}>{s}×</button>
-          ))}
-          <button className="poison" onClick={togglePoison} aria-pressed={poison}>Poison the future</button>
-        </div>
-      </header>
+    <>
+      <div className="show">
+        <header className="masthead">
+          <h1>Gate Closure<span>one week, replayed at the gate</span></h1>
+          <div className="clock" aria-live="off">
+            <span className="time readout">{hhmm(now)}</span>
+            <span className="day">{dayLabel(now)} 2026, UTC</span>
+          </div>
+          <div className="controls">
+            <button onClick={() => { setPoison(false); setPlaying((p) => !p); }} aria-pressed={playing}>{playing ? 'Pause' : 'Play'}</button>
+            {SPEEDS.map((s) => (
+              <button key={s} onClick={() => setSpeed(s)} aria-pressed={speed === s} aria-label={`${s} half hours a second`}>{s}×</button>
+            ))}
+            <button className="poison" onClick={togglePoison} aria-pressed={poison}>Poison the future</button>
+          </div>
+        </header>
 
-      <main className="deck">
-        <section className="inset gate">
-          <h2>The gate</h2>
-          <GateChart r={R} d={d} now={now} poison={poison} noiseSeed={noiseSeed} />
-          <p className="note">
-            {poison
-              ? 'Everything published after the cutoff is noise. Every lamp to the left of it is unchanged: rebuilt from the poisoned data, 0 of 170 decisions moved.'
-              : 'Amber means the grid is short of power and prices run high; blue means long. The lower lamps fill in as each price prints, about 52 minutes after its half hour starts.'}
-          </p>
-        </section>
-        <section className="inset map">
-          <h2>Wind, at the gate</h2>
-          <MapPanel revisionMw={decided?.wind_revision_mw ?? null} pulseKey={gate} />
-        </section>
-        <section className="inset battery">
-          <Battery r={R} d={d} now={now} period={periodAt(d, now)} />
-        </section>
-      </main>
+        <main className="deck">
+          <section className="region map">
+            <h2>What the model saw at the gate</h2>
+            <MapPanel decided={decided} pulseKey={gate} />
+          </section>
+          <section className="region gate">
+            <h2>The gate: an hour before each half hour, a forecast and a trade; the price arrives 52 minutes after it starts</h2>
+            <GateChart r={R} d={d} now={now} poison={poison} noiseSeed={noiseSeed} />
+            <p className="note">
+              {poison
+                ? 'Everything published after the cutoff is noise. Every lamp to the left of it is unchanged: rebuilt from the poisoned data, 0 of 170 decisions moved.'
+                : 'Amber: the grid is short of power and prices run high. Blue: long. Space plays and pauses, arrows step a half hour, 1 2 3 set the speed, P poisons the future.'}
+            </p>
+          </section>
+          <section className="region battery">
+            <Battery r={R} d={d} now={now} period={periodAt(d, now)} />
+          </section>
+        </main>
+      </div>
 
-      <p className="note" style={{ marginTop: 12 }}>
-        {R.meta.replay_rule} The fixed schedule won this week. Over four years of walk-forward testing the forecast earns{' '}
-        {gbp(ours, 1)} a day against {gbp(schedule, 1)} for the schedule. Keys: space plays and pauses, arrows step a half
-        hour, 1 2 3 set the speed, P poisons the future.
-      </p>
-
-      <div className="section">
-        <h2>Four years, in two numbers</h2>
-        <p className="lede">
-          The forecast is clearly better than persistence and than NESO's own: Brier 0.229 against 0.241 and 0.247, a
-          difference the Diebold-Mariano test puts at 17 standard errors. It is almost perfectly calibrated, but rarely
-          confident, and that is why it is worth only about £5 a day more than no forecast at all.
+      <div className="record">
+        <p className="caption">
+          {R.meta.replay_rule} The fixed schedule won this week. Over four years of walk-forward testing the forecast earns{' '}
+          {gbp(ours, 1)} a day against {gbp(schedule, 1)} for the schedule; the record below is that test.
         </p>
-        <Skill r={R} />
-        <MoneyLadder r={R} />
-      </div>
 
-      <div className="section">
-        <h2>Receipts</h2>
-        <Receipts r={R} onPoison={() => { togglePoison(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
+        <div className="section">
+          <h2>Four years, in two numbers</h2>
+          <p className="lede">
+            The forecast is clearly better than persistence and than NESO's own: Brier 0.229 against 0.241 and 0.247, a
+            difference the Diebold-Mariano test puts at 17 standard errors. It is almost perfectly calibrated, but rarely
+            confident, and that is why it is worth only about £5 a day more than no forecast at all.
+          </p>
+          <Skill r={R} />
+          <MoneyLadder r={R} />
+        </div>
+
+        <div className="section">
+          <h2>Receipts</h2>
+          <Receipts r={R} onPoison={() => { togglePoison(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
+        </div>
       </div>
-    </div>
+    </>
   );
 }

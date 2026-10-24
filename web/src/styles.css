@@ -15,7 +15,6 @@
   --schedule: #9aa69c;
   --land: #36423c;
   --lamp-off: #3a4540;
-  --display: 'B612 Mono', ui-monospace, monospace;
   --text: 'B612', system-ui, sans-serif;
   color-scheme: dark;
 }
@@ -37,7 +36,7 @@ strong { font-weight: 700; }
 :focus-visible { outline: 2px solid var(--short); outline-offset: 2px; }
 
 .figure, .readout { font-variant-numeric: tabular-nums; }
-.readout { font-family: var(--display); }
+.readout { font-variant-numeric: tabular-nums; }
 
 /* ---------- the show: everything a viewer needs is on the first screen ---------- */
 
@@ -90,10 +89,10 @@ strong { font-weight: 700; }
 .fill { flex: 1; min-height: 0; }
 
 /* The map's readouts: what the model saw at the gate. */
-.readouts { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 14px; align-items: baseline; margin-top: 10px; font-size: 13px; }
+.readouts { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 14px; align-items: baseline; margin-top: 10px; font-size: 13px; white-space: nowrap; }
 .readouts .label { color: var(--ink-soft); }
 .readouts .value { text-align: right; font-size: 15px; }
-.readouts .delta { color: var(--ink-faint); font-size: 12px; min-width: 92px; }
+.readouts .delta { color: var(--ink-faint); font-size: 12px; min-width: 96px; }
 .readouts .verdict { grid-column: 1 / -1; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--rule-soft); display: flex; justify-content: space-between; align-items: baseline; }
 .readouts .verdict .big { font-size: 22px; font-weight: 700; }
 
@@ -111,7 +110,7 @@ strong { font-weight: 700; }
 .feeder.charging { animation: flow 700ms linear infinite; }
 .feeder.discharging { animation: flow 700ms linear infinite reverse; }
 .cell { transition: fill 300ms ease; }
-.state { display: flex; justify-content: space-between; align-items: baseline; margin: 6px 0 8px; }
+.state { display: flex; justify-content: space-between; align-items: baseline; margin: 2px 0 6px; }
 .state .action { font-size: 20px; font-weight: 700; }
 .legs { display: grid; grid-template-columns: 1fr auto; gap: 3px 16px; font-size: 13px; }
 .legs .figure { text-align: right; }

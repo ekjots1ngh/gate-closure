@@ -6,7 +6,7 @@ import { useSize } from './useSize';
 const HOUR = 3_600_000;
 const BACK_HOURS = 7;                        // history on screen
 const AHEAD_HOURS = 2.4;                     // the gate band and the period just decided
-const M = { top: 26, right: 16, left: 104 };
+const M = { top: 26, right: 16, left: 128 };
 const LAMP = 16;                             // lamp height in px
 const LAMP_GAP = 6;
 const AXIS = 22;

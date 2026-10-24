@@ -39,7 +39,7 @@ export default function Receipts({ r, onPoison }: { r: Replay; onPoison: () => v
           Computed on the real data by <code>python -m gclose.export</code>. The test suite runs the same check with a
           cutoff before every publication, and plants five leaks to prove it catches them.
         </p>
-        <div className="controls"><button onClick={onPoison}>Show it on the replay (P)</button></div>
+        <div className="controls inline"><button onClick={onPoison}>Show it on the replay (P)</button></div>
       </div>
       <LiveLedger />
     </>
