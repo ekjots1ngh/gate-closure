@@ -86,6 +86,7 @@ def run_policy(rows: pd.DataFrame, exp_price: np.ndarray, V_by_month: dict) -> p
     soc_k, day, day_pnl, halted = 0, None, 0.0, False
     pnl = np.zeros(len(rows))
     act = np.zeros(len(rows), dtype=int)
+    socs = np.zeros(len(rows))
     months = rows["month"].to_numpy()
     nxt = rows["slot_next"].to_numpy()
     realised = rows["ssp"].to_numpy()
@@ -104,11 +105,11 @@ def run_policy(rows: pd.DataFrame, exp_price: np.ndarray, V_by_month: dict) -> p
                 best, a = r[2] + v_next[soc_k + 1], -1
         cash = _rewards(realised[i])[{1: 0, 0: 1, -1: 2}[a]]
         soc_k -= a
-        pnl[i], act[i] = cash, a
+        pnl[i], act[i], socs[i] = cash, a, SOC[soc_k]
         day_pnl += cash
         if day_pnl < -DAILY_LOSS_LIMIT:
             halted = True
-    return pd.DataFrame({"start_time": rows["start_time"].to_numpy(), "action": act, "pnl": pnl})
+    return pd.DataFrame({"start_time": rows["start_time"].to_numpy(), "action": act, "pnl": pnl, "soc": socs})
 
 
 def prepare(preds: pd.DataFrame, f: pd.DataFrame):
