@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import replay from '../public/replay.json';
 import Battery from './Battery';
-import { dayLabel, derive, gbp, GATE_MS, hhmm, PERIOD_MS, periodAt, type Replay } from './data';
+import { dayLabel, dayShort, derive, gbp, GATE_MS, hhmm, PERIOD_MS, periodAt, type Derived, type Replay } from './data';
 import GateChart from './GateChart';
 import MapPanel from './MapPanel';
 import MoneyLadder from './MoneyLadder';
@@ -11,6 +11,22 @@ import Skill from './Skill';
 const R = replay as unknown as Replay;
 const SPEEDS = [1, 4, 16];                     // half hours of replay per second
 const START_OFFSET = 10 * 3_600_000;           // open on Monday 10:00, so the chart has history
+
+/** The week as a strip under the masthead: where the replay is, and a click to go anywhere. */
+function WeekStrip({ d, now, end, seek }: { d: Derived; now: number; end: number; seek: (t: number) => void }) {
+  const days = Array.from({ length: 7 }, (_, k) => d.t0 + k * 48 * PERIOD_MS);
+  const span = end - d.t0;
+  const at = (t: number) => `${(100 * (t - d.t0)) / span}%`;
+  return (
+    <div className="week" role="slider" aria-label="Position in the week" aria-valuemin={0} aria-valuemax={100}
+      aria-valuenow={Math.round((100 * (now - d.t0)) / span)} tabIndex={0}
+      onClick={(e) => { const box = e.currentTarget.getBoundingClientRect(); seek(d.t0 + Math.min(1, Math.max(0, (e.clientX - box.left) / box.width)) * span); }}>
+      {days.map((t) => <span key={t} className="day-mark" style={{ left: at(t) }}>{dayShort(t)}</span>)}
+      <span className="week-elapsed" style={{ width: at(now) }} />
+      <span className="week-now" style={{ left: at(now) }} />
+    </div>
+  );
+}
 
 export default function App() {
   const d = useMemo(() => derive(R), []);
@@ -90,6 +106,7 @@ export default function App() {
             <button className="poison" onClick={togglePoison} aria-pressed={poison}>Poison the future</button>
           </div>
         </header>
+        <WeekStrip d={d} now={now} end={end} seek={(t) => { setPoison(false); setPlaying(false); setNow(t); }} />
 
         <main className="deck">
           <section className="region map">

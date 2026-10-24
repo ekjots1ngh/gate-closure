@@ -1,6 +1,6 @@
 import * as d3 from 'd3';
-import { useMemo } from 'react';
-import { decidedCount, GATE_MS, hhmm, PERIOD_MS, PRINT_MS, printedCount, type Derived, type Replay } from './data';
+import { useMemo, useState } from 'react';
+import { decidedCount, GATE_MS, gbp, hhmm, PERIOD_MS, PRINT_MS, printedCount, type Derived, type Replay } from './data';
 import { useSize } from './useSize';
 
 const HOUR = 3_600_000;
@@ -78,9 +78,19 @@ export default function GateChart({ r, d, now, poison, noiseSeed }: Props) {
   const decidedRow = r.tape[(target - d.t0) / PERIOD_MS];
   const ticks = x.ticks(d3.utcHour.every(width > 760 ? 1 : 2)!);
 
+  // Hovering a half hour that has been decided reads out what was forecast, what happened and what it earned.
+  const [hover, setHover] = useState<number | null>(null);
+  const inspected = hover !== null && hover < decided && !poison ? r.tape[hover] : null;
+  const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    const px = e.clientX - e.currentTarget.getBoundingClientRect().left;
+    const i = Math.floor((x.invert(px).getTime() - d.t0) / PERIOD_MS);
+    setHover(i >= 0 && i < d.n ? i : null);
+  };
+
   return (
     <div ref={ref} className="fill">
-      <svg width={width} height={height} role="img" aria-label="Prices, the gate and the forecast lamps">
+      <svg width={width} height={height} role="img" aria-label="Prices, the gate and the forecast lamps"
+        onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
         {gridValues.map((v) => (
           <g key={v}>
             <line x1={M.left} x2={width - M.right} y1={y(v)} y2={y(v)} stroke="var(--rule)" strokeWidth={v === 0 ? 1 : 0.6} />
@@ -148,6 +158,24 @@ export default function GateChart({ r, d, now, poison, noiseSeed }: Props) {
             <text x={x(d.cutoff) + 8} y={M.top + 12} style={{ fill: 'var(--short)' }}>everything published after this line is noise</text>
           </g>
         )}
+
+        {inspected && (() => {
+          const start = d.starts[hover!];
+          const printedYet = hover! < printed;
+          const left = Math.min(Math.max(x(start), M.left), width - M.right - 232);
+          const lines = [
+            `${hhmm(start)}: forecast ${inspected.p_ours >= 0.5 ? 'short' : 'long'} ${(100 * Math.max(inspected.p_ours, 1 - inspected.p_ours)).toFixed(0)}%`,
+            `ours ${inspected.ours.action > 0 ? 'discharged' : inspected.ours.action < 0 ? 'charged' : 'held'}` + (printedYet ? `, ${gbp(inspected.ours.pnl)}` : ''),
+            printedYet ? `price ${gbp(inspected.price)}/MWh, the grid was ${inspected.short ? 'short' : 'long'}` : 'price not printed yet',
+          ];
+          return (
+            <g pointerEvents="none">
+              <rect x={x(start)} y={M.top - 4} width={Math.max(1, x(start + PERIOD_MS) - x(start))} height={rows.outcome + LAMP + 6 - M.top} fill="var(--ink)" opacity={0.08} />
+              <rect x={left} y={plotBottom - 66} width={228} height={58} rx={3} fill="var(--recess)" stroke="var(--rule)" />
+              {lines.map((line, k) => <text key={k} x={left + 10} y={plotBottom - 48 + 17 * k} style={{ fill: k === 0 ? 'var(--ink)' : undefined }}>{line}</text>)}
+            </g>
+          );
+        })()}
 
         {ticks.map((t) => (
           <text key={+t} x={x(t)} y={height - 6} textAnchor="middle">{hhmm(+t)}</text>
