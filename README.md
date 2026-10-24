@@ -18,7 +18,7 @@ Walk-forward, July 2022 to June 2026, refitted monthly, 70,120 half hours. The h
 |---|---|---|
 | fixed schedule, no forecast | 42.9 (34.5 to 51.8) | 42.9 (identical actions) |
 | ours, logistic | 46.0 (38.0 to 53.9) | 48.3 (40.2 to 56.4) |
-| boosted classifier (Brier 0.2259) | 46.3 (38.2 to 54.9) | 50.0 (41.8 to 58.7) |
+| boosted classifier (Brier about 0.226), varies by machine | 45.9 to 46.3 | 48.2 to 50.0 |
 | calibrated persistence | 35.6 (28.1 to 44.1) | 39.9 (31.8 to 49.0) |
 | NESO indicated imbalance | 27.0 (19.7 to 35.4) | 31.8 (24.0 to 40.5) |
 | knowing the side an hour early | 224.2 (204.2 to 245.9) | 223.1 (203.1 to 244.7) |
@@ -26,9 +26,9 @@ Walk-forward, July 2022 to June 2026, refitted monthly, 70,120 half hours. The h
 
 **How robust the £5.4 is.** Leaving out the top 1% of half hours by absolute price, as the protocol specifies: £5.0 [£0.4, £9.8]. Leaving out the top 1% of days, a harsher cut: £2.1 [-£4.1, £7.5], which we cannot tell apart from zero. By era: in the clean first-print era (to January 2024) ours beats the schedule by £9.4 a day and persistence by 0.0127 Brier; after it, by £2.7 and 0.0110.
 
-The boosted classifier beats the logistic model on Brier but not clearly on money (£1.7 a day [-£1.8, £5.0] in the chain), so the logistic model is the one we ship. Its rows can move by about £1 a day between scikit-learn versions; every other number reproduces to the decimal across machines.
+The boosted classifier beats the logistic model on Brier (0.2259 to 0.2265, against 0.2293) but not on money: in the chain it makes £48.2 to £50.0 a day against our £48.3, and on the machine where it did best the paired difference was £1.7 [-£1.8, £5.0]. So the logistic model is the one we ship. The boosted models are the only numbers that differ between machines, by up to £2 a day, from small floating-point differences in how the trees are built; every other number here reproduced to the decimal on two machines.
 
-Forecasting the price directly earns less than the schedule: ridge £19.7, boosted £23.6, last price seen minus £8.8 a day. Ridge is decent on average (MAE £37.8, correlation 0.75) but too optimistic exactly when it acts: when it sells it expected £129 on average and got £113.
+Forecasting the price directly earns less than the schedule: ridge £19.7, boosted £23.6 to £24.0, last price seen minus £8.8 a day. Ridge is decent on average (MAE £37.8, correlation 0.75) but too optimistic exactly when it acts: when it sells it expected £129 on average and got £113.
 
 Every number here comes from `make reproduce` and is written to `data/out/results.json`.
 
