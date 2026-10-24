@@ -31,7 +31,6 @@ python -m gclose.backtest                                        # walk-forward 
 ```
 
 The pulled months are committed under `data/raw/<dataset>/<YYYY-MM>.parquet`, so `python -m gclose.backtest` reproduces the headline with no network.
-```
 
 With `make`: `make test`, `make data`, `make backtest`, `make reproduce`.
 
