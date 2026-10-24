@@ -18,12 +18,22 @@ Built at OxHack '26 (24 to 25 October 2026, Mathematical Institute, Oxford) for 
 
 ## Run it
 
+Works the same on Windows, macOS and Linux; `make` is optional.
+
 ```
+git clone https://github.com/ekjots1ngh/gate-closure
+cd gate-closure
 pip install -r requirements.txt
-make test                                   # poison test on synthetic data, no network
-make data                                   # pulls Elexon prices and vintages 2022-01-01 to 2026-10-23
-make backtest                               # walk-forward ladder + battery table with intervals
+python -m pytest -q tests                                        # poison test on synthetic data, no network
+python -m gclose.ingest check                                    # 30-second Elexon smoke test
+python -m gclose.ingest prices 2022-01-01 2026-10-23             # about 1,760 calls, 8 in parallel
+python -m gclose.ingest vintages WINDFOR 2022-01-01 2026-10-23
+python -m gclose.ingest vintages NDF 2022-01-01 2026-10-23
+python -m gclose.ingest vintages IMBALNGC 2022-01-01 2026-10-23
+python -m gclose.backtest                                        # walk-forward ladder + battery table with intervals
 ```
+
+With `make`: `make test`, `make data`, `make backtest`, `make reproduce`.
 
 ## Data
 

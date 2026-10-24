@@ -42,6 +42,16 @@ def _asof_vintage(targets: pd.DataFrame, vint: pd.DataFrame, key_time: str, name
     return out
 
 
+def _national(df: pd.DataFrame, name: str) -> pd.DataFrame:
+    """National rows only. Fails loudly: a silent empty join would make a baseline meaningless."""
+    if "boundary" in df:
+        df = df[df["boundary"].astype(str) == "N"]
+    if df.empty:
+        raise ValueError(f"{name}: no national (boundary 'N') rows. Run `python -m gclose.ingest check` "
+                         f"and look at the boundaries it lists.")
+    return df
+
+
 def build(prices: pd.DataFrame, windfor: pd.DataFrame, ndf: pd.DataFrame, imbalngc: pd.DataFrame) -> pd.DataFrame:
     """Return one row per settlement period with targets and gate-safe features."""
     p = prices[RAW_COLS].copy().sort_values("start_time").reset_index(drop=True)
@@ -61,14 +71,14 @@ def build(prices: pd.DataFrame, windfor: pd.DataFrame, ndf: pd.DataFrame, imbaln
 
     # Forecast vintages, as-of the gate. WINDFOR is hourly: match on the hour.
     p["hour_start"] = p["start_time"].dt.floor("h")
-    nat = lambda df: df[df["boundary"].astype(str).isin(["N", "nan"])] if "boundary" in df else df
+    ndf_n, imb_n = _national(ndf, "NDF"), _national(imbalngc, "IMBALNGC")
     p["wind_latest"] = _asof_vintage(p, windfor, "hour_start", "wind_latest")
     p["wind_prev"] = _asof_vintage(p, windfor, "hour_start", "wind_prev", previous=True)
     p["wind_revision"] = p["wind_latest"] - p["wind_prev"]
-    p["demand_latest"] = _asof_vintage(p, nat(ndf), "start_time", "demand_latest")
-    p["demand_prev"] = _asof_vintage(p, nat(ndf), "start_time", "demand_prev", previous=True)
+    p["demand_latest"] = _asof_vintage(p, ndf_n, "start_time", "demand_latest")
+    p["demand_prev"] = _asof_vintage(p, ndf_n, "start_time", "demand_prev", previous=True)
     p["demand_revision"] = p["demand_latest"] - p["demand_prev"]
-    p["imbal_latest"] = _asof_vintage(p, nat(imbalngc), "start_time", "imbal_latest")
+    p["imbal_latest"] = _asof_vintage(p, imb_n, "start_time", "imbal_latest")
 
     # Clock, in UTC. Never settlement_period arithmetic: 25 Oct 2026 has 50 periods.
     p["hour"] = p["start_time"].dt.hour
