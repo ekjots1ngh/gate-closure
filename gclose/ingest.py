@@ -9,15 +9,16 @@ Data lands in one parquet file per dataset per month, data/raw/<dataset>/<YYYY-M
 so a slow or interrupted pull is resumable and every finished month is usable at once.
 
 Run: python -m gclose.ingest check                          30-second smoke test, run this first
-     python -m gclose.ingest pull 2025-07-01 2026-10-23     newest month first, resumable
+     python -m gclose.ingest pull 2022-01-01 2026-10-23     newest month first, resumable
 """
 
 from __future__ import annotations
 
 import sys
 import time
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -25,10 +26,10 @@ import pandas as pd
 
 BASE = "https://data.elexon.co.uk/bmrs/api/v1"
 RAW = Path(__file__).resolve().parent.parent / "data" / "raw"
-RAW.mkdir(parents=True, exist_ok=True)
 
 _client = httpx.Client(timeout=90, headers={"User-Agent": "gate-closure-oxhack26"})
-_stats = {"bytes": 0}
+_stats = {"bytes": 0}             # bytes downloaded this run, for the speed readout
+RETRYABLE = {429, 500, 502, 503, 504}
 
 # IMBALNGC carries 18 boundaries (B1..B17, N); asking for N server-side cuts the download 18x.
 SERVER_FILTER = {"IMBALNGC": {"boundary": "N"}}
@@ -36,7 +37,7 @@ VINTAGE_VALUE = {"WINDFOR": "generation", "NDF": "demand", "IMBALNGC": "imbalanc
 DATASETS = ("prices", "WINDFOR", "NDF", "IMBALNGC")
 
 
-class BadRequest(Exception):
+class BadRequestError(Exception):
     """Elexon said 400, usually a publish window that is too long."""
 
 
@@ -49,11 +50,11 @@ def _get(path: str, params: dict | None = None, tries: int = 6) -> dict:
             time.sleep(min(2 ** attempt, 30))
             continue
         _stats["bytes"] += r.num_bytes_downloaded
-        if r.status_code == 200:
+        if r.status_code == httpx.codes.OK:
             return r.json()
-        if r.status_code == 400:
-            raise BadRequest(f"400 on {path} {params}: {r.text[:200]}")
-        if r.status_code in (429, 500, 502, 503, 504):
+        if r.status_code == httpx.codes.BAD_REQUEST:
+            raise BadRequestError(f"400 on {path} {params}: {r.text[:200]}")
+        if r.status_code in RETRYABLE:
             time.sleep(min(2 ** attempt, 30))
             continue
         r.raise_for_status()
@@ -96,6 +97,7 @@ def fetch_prices_day(d: date) -> pd.DataFrame:
 
 
 def fetch_prices(start: date, end: date, workers: int = 8) -> pd.DataFrame:
+    """Prices for every settlement date from start to end inclusive, one row per period."""
     days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
     with ThreadPoolExecutor(workers) as ex:
         frames = list(ex.map(fetch_prices_day, days))
@@ -119,7 +121,7 @@ def fetch_vintages_window(dataset: str, pub_from: datetime, pub_to: datetime) ->
             "publishDateTimeTo": pub_to.strftime("%Y-%m-%dT%H:%MZ"),
             **SERVER_FILTER.get(dataset, {}),
         })
-    except BadRequest:
+    except BadRequestError:
         if pub_to - pub_from <= timedelta(hours=6):
             raise
         mid = pub_from + (pub_to - pub_from) / 2
@@ -139,8 +141,9 @@ def fetch_vintages_window(dataset: str, pub_from: datetime, pub_to: datetime) ->
 
 
 def fetch_vintages(dataset: str, start: date, end: date, days_per_call: int = 7, workers: int = 6) -> pd.DataFrame:
-    t0 = datetime(start.year, start.month, start.day, tzinfo=timezone.utc)
-    t1 = datetime(end.year, end.month, end.day, tzinfo=timezone.utc) + timedelta(days=1)
+    """Every national vintage of a forecast dataset published from start to end inclusive."""
+    t0 = datetime(start.year, start.month, start.day, tzinfo=UTC)
+    t1 = datetime(end.year, end.month, end.day, tzinfo=UTC) + timedelta(days=1)
     windows, t = [], t0
     while t < t1:
         windows.append((t, min(t + timedelta(days=days_per_call), t1)))
@@ -157,7 +160,8 @@ def fetch_vintages(dataset: str, start: date, end: date, days_per_call: int = 7,
 
 # ---------------------------------------------------------------- monthly, resumable pull
 
-def _months(start: date, end: date):
+def _months(start: date, end: date) -> Iterator[tuple[date, date, str]]:
+    """(first day, last day, "YYYY-MM") for each calendar month touching [start, end], clipped to it."""
     m = date(start.year, start.month, 1)
     while m <= end:
         nxt = date(m.year + m.month // 12, m.month % 12 + 1, 1)
@@ -165,7 +169,7 @@ def _months(start: date, end: date):
         m = nxt
 
 
-def pull(start: date, end: date, datasets=DATASETS) -> None:
+def pull(start: date, end: date, datasets: tuple[str, ...] = DATASETS) -> None:
     """Newest month first; each month completes every dataset before the next month starts,
     so the newest N months are always a usable contiguous block. Finished months are skipped
     on a rerun, except the month containing `end`, which is always refreshed."""
@@ -195,8 +199,10 @@ def load(dataset: str) -> pd.DataFrame:
         raise FileNotFoundError(f"no data for {dataset} under {RAW / dataset}; run `python -m gclose.ingest pull ...`")
     df = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
     if dataset == "prices":
-        return df.drop_duplicates("start_time").sort_values("start_time").reset_index(drop=True)
-    return df.drop_duplicates(["publish_time", "start_time", "boundary"]).sort_values(["start_time", "publish_time"]).reset_index(drop=True)
+        df = df.drop_duplicates("start_time").sort_values("start_time")
+    else:
+        df = df.drop_duplicates(["publish_time", "start_time", "boundary"]).sort_values(["start_time", "publish_time"])
+    return df.reset_index(drop=True)
 
 
 # ---------------------------------------------------------------- cli
@@ -207,7 +213,7 @@ def check() -> None:
     t0w = time.time()
     p = fetch_prices_day(d)
     print(f"prices {d}: {len(p)} rows (expect 46, 48 or 50); niv non-null {p['niv'].notna().sum() if len(p) else 0}")
-    t0 = datetime(d.year, d.month, d.day, tzinfo=timezone.utc)
+    t0 = datetime(d.year, d.month, d.day, tzinfo=UTC)
     for ds in VINTAGE_VALUE:
         v = _national(fetch_vintages_window(ds, t0, t0 + timedelta(days=1)), ds)
         if v.empty:
@@ -216,7 +222,8 @@ def check() -> None:
         has_n = (v["boundary"].astype(str) == "N").all()
         print(f"{ds}: {len(v)} national rows, {v['publish_time'].nunique()} vintages, all boundary N: {has_n}")
     secs = time.time() - t0w
-    print(f"downloaded {_stats['bytes'] / 1e6:.2f} MB in {secs:.1f}s ({_stats['bytes'] / 1e3 / max(secs, 0.1):.0f} kB/s)")
+    kb_per_s = _stats["bytes"] / 1e3 / max(secs, 0.1)
+    print(f"downloaded {_stats['bytes'] / 1e6:.2f} MB in {secs:.1f}s ({kb_per_s:.0f} kB/s)")
     print(f"one full day of all four datasets is about {_stats['bytes'] / 1e6:.2f} MB, so a year is about "
           f"{_stats['bytes'] * 365 / 1e6:.0f} MB at this rate of compression")
 
@@ -225,9 +232,9 @@ def main(argv: list[str]) -> None:
     kind = argv[0] if argv else "check"
     if kind == "check":
         check()
-    elif kind == "pull":
+    elif kind == "pull" and len(argv) in (3, 4):
         start, end = date.fromisoformat(argv[1]), date.fromisoformat(argv[2])
-        datasets = tuple(argv[3].split(",")) if len(argv) > 3 else DATASETS
+        datasets = tuple(argv[3].split(",")) if len(argv) == 4 else DATASETS
         pull(start, end, datasets)
     else:
         raise SystemExit("usage: python -m gclose.ingest check | pull START END [prices,WINDFOR,NDF,IMBALNGC]")
