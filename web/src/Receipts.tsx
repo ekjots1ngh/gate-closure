@@ -46,7 +46,8 @@ export default function Receipts({ r, onPoison }: { r: Replay; onPoison: () => v
   );
 }
 
-function LiveLedger() {
+/** The ledger as pushed to GitHub, refreshed every minute; null until the first fetch, failed if GitHub is unreachable. */
+export function useLedger(): { rows: Decision[] | null; failed: boolean } {
   const [rows, setRows] = useState<Decision[] | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -60,6 +61,25 @@ function LiveLedger() {
     const timer = setInterval(load, REFRESH_MS);
     return () => { alive = false; clearInterval(timer); };
   }, []);
+  return { rows, failed };
+}
+
+/** A lamp in the masthead: the real ledger is alive, and this is its latest line. */
+export function LiveBadge() {
+  const { rows } = useLedger();
+  if (!rows) return null;
+  const clean = rows.filter((row) => !preFix(row));
+  const last = clean[clean.length - 1] ?? rows[rows.length - 1];
+  return (
+    <a className="live-badge" href="https://github.com/ekjots1ngh/gate-closure/blob/main/ledger/decisions.jsonl" target="_blank" rel="noreferrer">
+      <span className="live-lamp" />
+      live: {clean.length} decisions pushed to GitHub, latest for {last.target_start.slice(11, 16)} UTC
+    </a>
+  );
+}
+
+function LiveLedger() {
+  const { rows, failed } = useLedger();
 
   return (
     <div className="inset">

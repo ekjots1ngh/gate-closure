@@ -5,7 +5,7 @@ import { dayLabel, dayShort, derive, gbp, GATE_MS, hhmm, PERIOD_MS, periodAt, ty
 import GateChart from './GateChart';
 import MapPanel from './MapPanel';
 import MoneyLadder from './MoneyLadder';
-import Receipts from './Receipts';
+import Receipts, { LiveBadge } from './Receipts';
 import Skill from './Skill';
 
 const R = replay as unknown as Replay;
@@ -93,10 +93,11 @@ export default function App() {
     <>
       <div className="show">
         <header className="masthead">
-          <h1>Gate Closure<span>one week, replayed at the gate</span></h1>
+          <h1>Gate Closure<span>a week of the GB grid, replayed</span></h1>
           <div className="clock" aria-live="off">
             <span className="time readout">{hhmm(now)}</span>
             <span className="day">{dayLabel(now)} 2026, UTC</span>
+            <LiveBadge />
           </div>
           <div className="controls">
             <button onClick={() => { setPoison(false); setPlaying((p) => !p); }} aria-pressed={playing}>{playing ? 'Pause' : 'Play'}</button>

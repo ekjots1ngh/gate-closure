@@ -61,11 +61,15 @@ strong { font-weight: 700; }
   padding: 0 22px;
   border-bottom: 1px solid var(--rule);
 }
-.masthead h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.01em; }
+.masthead h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.01em; white-space: nowrap; }
 .masthead h1 span { color: var(--ink-faint); font-weight: 400; margin-left: 12px; }
-.clock { display: flex; align-items: baseline; gap: 12px; }
-.clock .time { font-size: 30px; font-weight: 700; line-height: 1; }
+.clock { display: grid; grid-template-columns: auto auto; justify-items: center; align-items: baseline; column-gap: 12px; }
+.clock .time { font-size: 28px; font-weight: 700; line-height: 1; }
 .clock .day { color: var(--ink-soft); }
+.live-badge { grid-column: 1 / -1; margin-top: 3px; font-size: 11.5px; color: var(--ink-faint); text-decoration: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 7px; }
+.live-badge:hover { color: var(--ink-soft); }
+@keyframes breathe { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+.live-lamp { width: 8px; height: 8px; border-radius: 50%; background: var(--short); animation: breathe 2.4s ease-in-out infinite; }
 .controls { display: flex; gap: 6px; justify-content: end; align-items: center; }
 .controls button {
   background: var(--recess);
@@ -76,7 +80,7 @@ strong { font-weight: 700; }
   color: var(--ink-soft);
 }
 .controls button[aria-pressed='true'] { border-color: var(--ink-soft); color: var(--ink); background: #39443e; }
-.controls .poison { margin-left: 10px; }
+.controls .poison { margin-left: 10px; white-space: nowrap; }
 .controls .poison[aria-pressed='true'] { border-color: var(--short); color: var(--short); }
 
 .deck {
@@ -164,6 +168,6 @@ svg .figure { fill: var(--ink); }
 
 @media (prefers-reduced-motion: reduce) {
   .pulse, .print-flash { animation: none; opacity: 0; }
-  .feeder.charging, .feeder.discharging { animation: none; }
+  .feeder.charging, .feeder.discharging, .live-lamp { animation: none; }
   .lamp, .cell, .tint { transition: none; }
 }
