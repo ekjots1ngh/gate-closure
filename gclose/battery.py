@@ -2,8 +2,10 @@
 
 1 MW / 2 MWh, so one half-hour step moves 0.5 MWh and the state of charge (SoC) lives on
 five levels: 0, 0.5, 1.0, 1.5, 2.0 MWh. Losses are taken on the way out (discharging 0.5 MWh
-delivers 85% of it), wear costs GBP 5 per MWh moved in either direction, and after a day's
-losses pass GBP 500 the battery holds until midnight UTC.
+delivers 85% of it), wear costs GBP 5 per MWh moved in either direction, and once the day's
+losses known at the gate pass GBP 500 the battery holds until midnight UTC. Known means
+settled: the battery's cash for a period is known when that period's price prints, so at
+each gate it sees its own P&L only up to period t-4, the same lag as every other price.
 
 The optimiser is split in two because the two halves have different shapes:
   * Values ("what is each SoC level worth from here on") depend only on prices, never on
@@ -15,6 +17,8 @@ The optimiser is split in two because the two halves have different shapes:
 from __future__ import annotations
 
 import numpy as np
+
+from . import PRICE_LAG_PERIODS
 
 STEP = 0.5                 # MWh moved per half hour at 1 MW
 CAP = 2.0                  # MWh
@@ -72,6 +76,19 @@ def value_tables(profile: np.ndarray, horizon: int = 47) -> np.ndarray:
     return v
 
 
+def hindsight_q(realised: np.ndarray) -> np.ndarray:
+    """Q-values with every future price known: one backward pass over the whole series.
+
+    No policy that decides at the gate can beat this; it is the ceiling, not a target.
+    """
+    q = np.empty((len(realised), K, 3))
+    v = np.zeros(K)
+    for i in range(len(realised) - 1, -1, -1):
+        q[i] = q_values(v, realised[i])
+        v = q[i].max(axis=-1)
+    return q
+
+
 def simulate(q: np.ndarray, realised: np.ndarray, day: np.ndarray):
     """Walk the battery through time.
 
@@ -83,15 +100,17 @@ def simulate(q: np.ndarray, realised: np.ndarray, day: np.ndarray):
     best = q.argmax(axis=-1)            # (n, K): the best action for every SoC the battery could be at
     paid = cash(realised)               # (n, 3): what each action actually paid
     n = len(realised)
-    action, soc, pnl = np.empty(n, dtype=np.int8), np.empty(n), np.empty(n)
-    k, today, day_pnl, halted = 0, None, 0.0, False
+    action, soc, pnl = np.empty(n, dtype=np.int8), np.empty(n), np.zeros(n)
+    k, today, first, known, halted = 0, None, 0, 0.0, False
     for i in range(n):
         if day[i] != today:
-            today, day_pnl, halted = day[i], 0.0, False
+            today, first, known, halted = day[i], i, 0.0, False
+        settled = i - PRICE_LAG_PERIODS  # newest period whose price, and so our cash, is known at this gate
+        if settled >= first:
+            known += pnl[settled]
+        halted = halted or known < -DAILY_LOSS_LIMIT
         a = HOLD if halted else best[i, k]
         k += MOVE[a]
         pnl[i] = paid[i, a]
-        day_pnl += pnl[i]
-        halted = halted or day_pnl < -DAILY_LOSS_LIMIT
         action[i], soc[i] = LABEL[a], SOC[k]
     return action, soc, pnl

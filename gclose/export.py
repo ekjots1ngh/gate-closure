@@ -17,7 +17,8 @@ import numpy as np
 import pandas as pd
 
 from . import decide
-from .backtest import OUT, brier_table
+from . import GATE_CLOSURE
+from .backtest import OUT, TRAIN_END
 from .features import FEATURES
 
 WEB = Path(__file__).resolve().parent.parent / "web" / "public"
@@ -58,32 +59,45 @@ def tape(book: decide.Book, sims: dict, f: pd.DataFrame, sel: np.ndarray) -> lis
     return out
 
 
-def real_poison_test(week_start: pd.Timestamp) -> dict:
+def real_poison_test(book: decide.Book, week_start: pd.Timestamp) -> dict:
     """Poison the real raw data after a mid-week cutoff, rebuild, and count what changed.
 
-    A 21-day window keeps it to seconds. The model is the one fitted on everything before
-    the replay month, exactly as in the walk-forward.
+    Checks inputs, forecasts and the battery's decisions for every half hour decided before
+    the cutoff. A 17-day window keeps it to seconds and stops before the holdout; the model
+    is the one fitted for the replay month, exactly as in the walk-forward.
     """
     from .features import build, poison
     from .ingest import load
     from .models import Ours
 
-    lo, hi = week_start - pd.Timedelta(days=14), week_start + pd.Timedelta(days=10)
+    lo, hi = week_start - pd.Timedelta(days=14), min(week_start + pd.Timedelta(days=9), TRAIN_END)
     raw = [load(d) for d in ("prices", "WINDFOR", "NDF", "IMBALNGC")]
     raw = [d[(d["start_time"] >= lo) & (d["start_time"] < hi)] for d in raw]
     cutoff = week_start + pd.Timedelta(days=3.5)
     clean, dirty = build(*raw), build(*poison(*raw, cutoff, seed=7))
 
+    month0 = week_start.replace(day=1)
     full = pd.read_parquet(OUT / "features.parquet")
-    model = Ours().fit(full[full["start_time"] < week_start.replace(day=1)])
-    before = (clean["start_time"] >= week_start) & (clean["gate"] < cutoff)
-    after = clean["gate"] >= cutoff + pd.Timedelta(hours=2)
+    model = Ours().fit(full[full["created_at"] < month0 - GATE_CLOSURE])
+    decided = clean["start_time"] - GATE_CLOSURE                 # the protocol's gate, not the code's
+    before = ((clean["start_time"] >= week_start) & (decided < cutoff)).to_numpy()
+    after = (decided >= cutoff + pd.Timedelta(hours=2)).to_numpy()
     same = lambda a, b: np.isclose(np.nan_to_num(a.to_numpy(dtype=float)), np.nan_to_num(b.to_numpy(dtype=float)))
+    p_clean, p_dirty = model.predict_proba(clean[before]), model.predict_proba(dirty[before])
+
+    # Decisions: the same optimiser and tables the backtest uses, fed each set of forecasts.
+    idx = np.flatnonzero(book.rows["start_time"].isin(clean.loc[before, "start_time"]))
+    sub = book.subset(idx)
+    order = clean.loc[before, "start_time"].reset_index(drop=True)
+    align = lambda p: pd.Series(p, index=order).reindex(sub.rows["start_time"]).to_numpy()
+    acts = [sub.chain(align(p)).argmax(-1) for p in (p_clean, p_dirty)]   # best action at every SoC level
+
     return {
         "cutoff": cutoff.strftime("%Y-%m-%dT%H:%MZ"),
         "decisions_checked": int(before.sum()),
         "features_changed": int((~same(clean.loc[before, FEATURES], dirty.loc[before, FEATURES])).any(axis=1).sum()),
-        "forecasts_changed": int((~np.isclose(model.predict_proba(clean[before]), model.predict_proba(dirty[before]))).sum()),
+        "forecasts_changed": int((~np.isclose(p_clean, p_dirty)).sum()),
+        "decisions_changed": int((acts[0] != acts[1]).any(axis=1).sum()),
         "rows_after_cutoff_poisoned": int((~same(clean.loc[after, "wind_latest"], dirty.loc[after, "wind_latest"])).sum()),
     }
 
@@ -94,7 +108,7 @@ def main() -> None:
     week = replay_week(book.rows)
     sel = (book.rows["start_time"].dt.tz_convert("UTC").dt.tz_localize(None).dt.to_period("W-SUN") == week).to_numpy()
     week_start = pd.Timestamp(week.start_time, tz="UTC")
-    poison_result = real_poison_test(week_start)
+    poison_result = real_poison_test(book, week_start)
     print("poison test:", poison_result)
 
     out = {
@@ -108,7 +122,6 @@ def main() -> None:
             "tape_policies": TAPE_POLICIES,
         },
         "tape": tape(book, sims, f, sel),
-        "brier": _records(brier_table(book.rows)),
         "poison": poison_result,
         **results,
     }

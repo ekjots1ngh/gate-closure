@@ -8,7 +8,9 @@ export interface Row {
 export interface Interval { lo: number; hi: number }
 export interface SkillPoint { k: number; brier: number; gbp_per_day: number }
 
-/** Mirrors gclose/export.py. Policy names are <family>_<forecast>: one_ours, chain_tilt, price_ridge, ... */
+export interface Gain { gain_gbp: number; gain_lo: number; gain_hi: number; share: number; lo: number; hi: number }
+
+/** Mirrors gclose/export.py. Policy names are <family>_<forecast>: one_ours, chain_tilt, price_ridge, hindsight. */
 export interface Replay {
   meta: {
     generated_at: string; test_period: string; replay_week: string; replay_rule: string;
@@ -16,11 +18,15 @@ export interface Replay {
     tape_policies: Record<'ours' | 'tilt' | 'oracle', string>;   // which policy each tape leg shows
   };
   tape: Row[];
-  brier: ({ model: string; brier: number } & Interval)[];
+  brier: ({ model: string; brier: number; log_loss: number; ours_minus: number; ours_minus_lo: number; ours_minus_hi: number } & Interval)[];
   money: ({ policy: string; gbp_per_day: number; active_share: number } & Interval)[];
-  gap_share: Record<string, { share: number; without_top_1pct_days: number } & Interval>;
+  gain_over_tilt: Record<string, Gain>;
+  gain_without_spike_periods: Record<string, Gain>;
+  gain_without_top_1pct_days: Record<string, Gain>;
+  by_era: Record<string, { ours_minus_persistence_cal: number[]; chain_ours_gbp: number; chain_tilt_gbp: number; gain: Gain }>;
   skill_curve: { one: SkillPoint[]; chain: SkillPoint[] };
-  poison: { cutoff: string; decisions_checked: number; features_changed: number; forecasts_changed: number; rows_after_cutoff_poisoned: number };
+  poison: { cutoff: string; decisions_checked: number; features_changed: number; forecasts_changed: number;
+            decisions_changed: number; rows_after_cutoff_poisoned: number };
   by_year: ({ year: number } & Record<string, number>)[];
 }
 
@@ -92,4 +98,5 @@ export const NAMES: Record<string, string> = {
   price_last_seen: 'Last price seen',
   price_ridge: 'Price forecast, ridge',
   price_hgb: 'Price forecast, boosted',
+  hindsight: 'Perfect hindsight, every price known',
 };

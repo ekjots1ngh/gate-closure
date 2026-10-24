@@ -1,14 +1,17 @@
 """Point-in-time feature table: one row per half hour, built only from what was public at the gate.
 
 The rule: the decision for period t (starting at T) is made at the gate, T - 60 min. A
-forecast row may be used only if its publish_time is strictly before the gate. A price row
-exists 15 minutes after its period ends, so the newest price visible at the gate is for
-period t-4 (t-3 ends exactly at the gate and prints 15 minutes too late).
+forecast row may be used only if its publish_time is strictly before the gate, and a price
+only if it was first printed strictly before the gate. Prices usually print about 52 minutes
+after their period starts, so the newest price visible at the gate is normally t-4's; when
+t-4's print was late, its lag features are left missing rather than borrowed from the future.
+
+Known limitation: from February 2024 the stored price values are Elexon's next-day revisions,
+not the first prints (see gclose/__init__.py and PROTOCOL.md amendment 4). The timing rule
+above is enforced exactly; the values in that era may differ slightly from what was printed.
 
 Lags are taken by row on the time-sorted table. Where Elexon is missing a period (a handful
 of days have 45 or 47), a lag reaches slightly further back: staler, never later.
-
-`asof_features()` in store.sql is the database twin of `_latest_before()` below.
 """
 
 from __future__ import annotations
@@ -16,9 +19,15 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from . import GATE_CLOSURE, PRICE_LAG_PERIODS
+from . import FIRST_PRINT_DELAY, GATE_CLOSURE, PRICE_LAG_PERIODS, REFRESHED_AFTER
 
 TS = "datetime64[ns, UTC]"   # one timestamp dtype everywhere: merge_asof refuses mixed resolutions
+
+
+def first_print_at(prices: pd.DataFrame) -> pd.Series:
+    """When each price row was first public: created_at if that is the first print, else the median delay."""
+    start, created = prices["start_time"].astype(TS), prices["created_at"].astype(TS)
+    return created.where(created - start < REFRESHED_AFTER, start + FIRST_PRINT_DELAY)
 
 
 def _latest_before(keys: pd.Series, at: pd.Series, vint: pd.DataFrame) -> pd.DataFrame:
@@ -55,22 +64,28 @@ def _national(df: pd.DataFrame, name: str) -> pd.DataFrame:
 
 def build(prices: pd.DataFrame, windfor: pd.DataFrame, ndf: pd.DataFrame, imbalngc: pd.DataFrame) -> pd.DataFrame:
     """Targets and gate-safe features, one row per settlement period, sorted by start_time."""
-    p = prices[["start_time", "ssp", "niv"]].sort_values("start_time").reset_index(drop=True)
-    p["start_time"] = p["start_time"].astype(TS)
+    p = prices[["start_time", "created_at", "ssp", "niv"]].sort_values("start_time").reset_index(drop=True)
+    p = p.astype({"start_time": TS, "created_at": TS})
     p["gate"] = p["start_time"] - GATE_CLOSURE
     p["short"] = (p["niv"] > 0).astype(int)
+    printed = first_print_at(p)
 
-    # Recent state of the system, from the newest settled periods.
+    def known(col: str, k: int) -> pd.Series:
+        """`col` of the period k rows back, or NaN if its price had not printed by this row's gate."""
+        return p[col].shift(k).where(printed.shift(k) < p["gate"])
+
+    # Recent state of the system, from the newest printed periods. The rolling statistics run
+    # over `seen`, whose every value was public at its own row's gate, so also at this one's.
     lag = PRICE_LAG_PERIODS
     for k in (lag, lag + 1, lag + 2):
-        p[f"short_lag{k}"] = p["short"].shift(k)
+        p[f"short_lag{k}"] = known("short", k)
     for k in (lag, lag + 1):
-        p[f"niv_lag{k}"] = p["niv"].shift(k)
-    seen = p["ssp"].shift(lag)
+        p[f"niv_lag{k}"] = known("niv", k)
+    seen = known("ssp", lag)
     p["ssp_lag4"] = seen
     p["ssp_mean48"] = seen.rolling(48, min_periods=24).mean()
     p["ssp_std48"] = seen.rolling(48, min_periods=24).std()
-    side = p["short"].shift(lag)
+    side = p["short_lag4"]
     p["streak"] = side.groupby((side != side.shift()).cumsum()).cumcount() + 1   # length of the current run
 
     # Forecasts as they stood at the gate. A late cut to the wind forecast is the mechanism
@@ -99,10 +114,10 @@ FEATURES = [
 
 def poison(prices: pd.DataFrame, windfor: pd.DataFrame, ndf: pd.DataFrame, imbalngc: pd.DataFrame,
            decided_at: pd.Timestamp, seed: int = 0):
-    """Copies of the raw data with everything public at or after `decided_at` replaced by noise.
+    """Copies of the raw data with everything first public at or after `decided_at` replaced by noise.
 
     If build() respects the gate, no feature of a period whose gate is before `decided_at`
-    can change. tests/test_poison.py asserts exactly that.
+    can change. tests/test_poison.py asserts exactly that, and that planted leaks are caught.
     """
     rng = np.random.default_rng(seed)
 
@@ -113,6 +128,6 @@ def poison(prices: pd.DataFrame, windfor: pd.DataFrame, ndf: pd.DataFrame, imbal
         return v
 
     pr = prices.copy()
-    late = pr["start_time"] + pd.Timedelta(minutes=45) >= decided_at    # a price exists 45 min after its start
+    late = (first_print_at(pr) >= decided_at).to_numpy()
     pr.loc[late, ["ssp", "sbp", "niv"]] = rng.normal(size=(late.sum(), 3)) * 1e6
     return pr, scramble(windfor), scramble(ndf), scramble(imbalngc)

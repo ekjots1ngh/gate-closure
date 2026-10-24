@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import stats
+from . import GATE_CLOSURE, stats
 from .features import build
 from .models import LADDER
 
@@ -37,11 +37,15 @@ def load_features(rebuild: bool = False) -> pd.DataFrame:
 
 
 def test_months(f: pd.DataFrame) -> Iterator[tuple[str, pd.Series, pd.Series]]:
-    """(month, train mask, test mask) for each walk-forward month, oldest first."""
+    """(month, train mask, test mask) for each walk-forward month, oldest first.
+
+    The refit for a month may learn only from outcomes public at that month's first gate,
+    so training rows are those whose stored price was created before T0 - 60 min.
+    """
     for m in pd.period_range(FIRST_TEST, LAST_TEST, freq="M"):
         t0 = m.start_time.tz_localize("UTC")
         t1 = (m + 1).start_time.tz_localize("UTC")
-        yield str(m), f["start_time"] < t0, (f["start_time"] >= t0) & (f["start_time"] < t1)
+        yield str(m), f["created_at"] < t0 - GATE_CLOSURE, (f["start_time"] >= t0) & (f["start_time"] < t1)
 
 
 def walk_forward(f: pd.DataFrame) -> pd.DataFrame:

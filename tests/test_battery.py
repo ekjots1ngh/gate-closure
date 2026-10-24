@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 
+from gclose import PRICE_LAG_PERIODS
 from gclose import battery as b
 from gclose.decide import Tables
 
@@ -35,7 +36,7 @@ def test_ties_hold():
     assert (action == 0).all() and (soc == 0).all() and (pnl == 0).all()
 
 
-def test_simulate_respects_physics_cash_and_the_loss_limit():
+def test_simulate_respects_physics_cash_and_a_loss_limit_on_settled_cash():
     rng = np.random.default_rng(1)
     days, n = 30, 48 * 30
     realised = rng.normal(80, 600, n)                              # wild enough to breach the limit
@@ -48,13 +49,14 @@ def test_simulate_respects_physics_cash_and_the_loss_limit():
     paid = b.cash(realised)[np.arange(n), np.select([action == 1, action == -1], [b.DISCHARGE, b.CHARGE], b.HOLD)]
     assert np.allclose(pnl, paid)
 
+    # Once the losses the battery could see at the gate (its cash up to t-4) pass the limit, it holds.
     breached = 0
     for d in range(days):
-        running = np.cumsum(pnl[day == d])
-        over = np.flatnonzero(running < -b.DAILY_LOSS_LIMIT)
-        if len(over):
-            breached += 1
-            assert (action[day == d][over[0] + 1:] == 0).all()
+        settled = np.cumsum(pnl[day == d])
+        for i in range(PRICE_LAG_PERIODS, 48):
+            if settled[i - PRICE_LAG_PERIODS] < -b.DAILY_LOSS_LIMIT:
+                assert action[day == d][i] == 0
+                breached += 1
     assert breached > 0, "test data never hit the loss limit, so the check above proved nothing"
 
 
@@ -67,7 +69,8 @@ def test_base_rate_mix_reproduces_the_profile():
     rng = np.random.default_rng(2)
     t = pd.date_range("2026-01-01", "2026-04-30 23:30", freq="30min", tz="UTC")
     short = (rng.random(len(t)) < 0.55).astype(int)
-    f = pd.DataFrame({"start_time": t, "short": short, "ssp": rng.normal(70, 30, len(t)) + 40 * short})
+    f = pd.DataFrame({"start_time": t, "created_at": t + pd.Timedelta(minutes=52), "short": short,
+                      "ssp": rng.normal(70, 30, len(t)) + 40 * short})
     tab = Tables.build(f, ["2026-04"])
     mix = tab.pi * tab.mu_short + (1 - tab.pi) * tab.mu_long
     np.testing.assert_allclose(mix, tab.profile, atol=1e-9)
