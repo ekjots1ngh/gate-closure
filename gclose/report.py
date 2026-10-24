@@ -54,6 +54,11 @@ def _with_interval(e: dict, fmt: str = "{:.1f}", scale: float = 1.0) -> str:
     return f"{fmt.format(value)} [{fmt.format(lo)}, {fmt.format(hi)}]"
 
 
+def _dm(test: dict) -> str:
+    p = test["p_value"]
+    return f"{test['statistic']:.1f} (p {'< 0.0001' if p < 1e-4 else f'= {p:.4f}'})"
+
+
 def render(results: dict) -> str:
     money = results["money"]
 
@@ -95,6 +100,22 @@ def render(results: dict) -> str:
         ]
         for era, e in results["by_era"].items()
     ]
+    quality_rows = [
+        [
+            MODELS[s["model"]],
+            f"{s['log_loss_bits']:.4f}",
+            f"{s['decomposition']['reliability']:.4f}",
+            f"{s['decomposition']['resolution']:.4f}",
+            "" if s["diebold_mariano"] is None else _dm(s["diebold_mariano"]),
+        ]
+        for s in results["forecasts"]
+    ]
+    risk_rows = [[name, f"{r['sharpe']:.2f}", f"{r['max_drawdown']:,.0f}"] for name, r in results["risk"].items()]
+    markov = results["markov_check"]
+    markov_rows = [
+        [str(lag), f"{seen:.3f}", f"{geometric:.3f}"]
+        for lag, seen, geometric in zip(markov["lags"], markov["observed"], markov["geometric"], strict=True)
+    ]
     year_rows = [[str(y["year"]), *(f"{y[policy]:.1f}" for policy in YEAR_COLUMNS)] for y in results["by_year"]]
     skill = results["value_of_skill"]
     skill_rows = [
@@ -113,6 +134,20 @@ resampling whole calendar weeks (1,000 resamples); differences are resampled in 
 Lower is better for both scores. The last column is ours minus each model, so negative means ours is better.
 
 {_table(["model", "Brier [90% CI]", "log loss", "ours minus model, Brier"], forecast_rows)}
+
+The same forecasts, taken apart. Log loss in bits: a coin flip is exactly 1 bit, so 1 minus the number is
+the information a forecast extracts per half hour. Murphy's decomposition splits Brier into reliability
+(calibration, lower is better) minus resolution (how well it sorts half hours, higher is better) plus the
+base uncertainty ({results["forecasts"][0]["decomposition"]["uncertainty"]:.4f} for everyone). The Diebold-Mariano
+statistic compares each model's squared errors with ours, with a Newey-West variance over one week of lags;
+negative favours ours.
+
+{_table(["model", "log loss, bits", "reliability", "resolution", "Diebold-Mariano vs ours"], quality_rows)}
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="reliability_dark.svg">
+  <img alt="Reliability diagram: on the diagonal, mostly between 0.3 and 0.7" src="reliability_light.svg">
+</picture>
 
 ## Money: a 1 MW / 2 MWh battery, £ per day
 
@@ -137,6 +172,24 @@ spike check leaves out the top 1% of half hours by absolute price; the harsher c
 Until February 2024 the stored prices are first prints; after it, Elexon's next-day revisions (PROTOCOL.md amendment 4).
 
 {_table(["era", "ours minus calibrated persistence, Brier", "chain ours", "schedule", "gain"], era_rows)}
+
+## Risk
+
+Annualised Sharpe ratio of daily P&L, and the largest fall from a running peak in cumulative £. The last
+row is the forecast's gain over the schedule, so its Sharpe ratio is an information ratio.
+
+{_table(["series", "Sharpe ratio", "max drawdown, £"], risk_rows)}
+
+## Is the side a Markov chain?
+
+The chain policy fades the forecast as a two-state Markov chain would: autocorrelation at lag h equal to
+the lag-1 value to the power h. The side's measured autocorrelation decays much more slowly, so the grid
+has longer memory than that. Fading with the measured memory instead earns
+£{markov["chain_ours_gbp"]["measured"]:.2f} a day against £{markov["chain_ours_gbp"]["geometric"]:.2f}. The
+simplification costs about a pound a day, so we report it and keep the protocol's policy rather than
+change it after seeing the results.
+
+{_table(["lag, half hours", "measured autocorrelation", "geometric (Markov)"], markov_rows)}
 
 ## By year, £ per day
 

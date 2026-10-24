@@ -1,6 +1,6 @@
 {
  "meta": {
-  "generated_at": "2026-10-24T16:16+00:00",
+  "generated_at": "2026-10-24T16:31+00:00",
   "test_period": "2022-07 to 2026-06, walk-forward, refitted monthly",
   "replay_week": "2026-06-22/2026-06-28",
   "replay_rule": "The 2026 week with the widest range of system prices, chosen without looking at P&L.",
@@ -8430,10 +8430,33 @@
     "hi": 0.2503
    },
    "log_loss": 0.6931,
+   "log_loss_bits": 1.0,
+   "decomposition": {
+    "reliability": 0.0006,
+    "resolution": 0.0001,
+    "uncertainty": 0.2495,
+    "residual": -0.0,
+    "bins": [
+     {
+      "forecast": 0.4909,
+      "observed": 0.4693,
+      "count": 37968
+     },
+     {
+      "forecast": 0.5141,
+      "observed": 0.4879,
+      "count": 32152
+     }
+    ]
+   },
    "ours_minus": {
     "value": -0.0207,
     "lo": -0.0224,
     "hi": -0.0189
+   },
+   "diebold_mariano": {
+    "statistic": -18.9536,
+    "p_value": 0.0
    }
   },
   {
@@ -8444,10 +8467,38 @@
     "hi": 0.3925
    },
    "log_loss": 1.5874,
+   "log_loss_bits": 2.2901,
+   "decomposition": {
+    "reliability": 0.1469,
+    "resolution": 0.0091,
+    "uncertainty": 0.2495,
+    "residual": 0.0,
+    "bins": [
+     {
+      "forecast": 0.02,
+      "observed": 0.3866,
+      "count": 36460
+     },
+     {
+      "forecast": 0.5,
+      "observed": 0.3977,
+      "count": 259
+     },
+     {
+      "forecast": 0.98,
+      "observed": 0.578,
+      "count": 33401
+     }
+    ]
+   },
    "ours_minus": {
     "value": -0.158,
     "lo": -0.1618,
     "hi": -0.1543
+   },
+   "diebold_mariano": {
+    "statistic": -68.8468,
+    "p_value": 0.0
    }
   },
   {
@@ -8458,10 +8509,43 @@
     "hi": 0.2421
    },
    "log_loss": 0.6749,
+   "log_loss_bits": 0.9737,
+   "decomposition": {
+    "reliability": 0.0006,
+    "resolution": 0.0091,
+    "uncertainty": 0.2495,
+    "residual": -0.0,
+    "bins": [
+     {
+      "forecast": 0.3934,
+      "observed": 0.3879,
+      "count": 28407
+     },
+     {
+      "forecast": 0.4103,
+      "observed": 0.3822,
+      "count": 8053
+     },
+     {
+      "forecast": 0.5918,
+      "observed": 0.5565,
+      "count": 12839
+     },
+     {
+      "forecast": 0.6172,
+      "observed": 0.589,
+      "count": 20821
+     }
+    ]
+   },
    "ours_minus": {
     "value": -0.0117,
     "lo": -0.0127,
     "hi": -0.0106
+   },
+   "diebold_mariano": {
+    "statistic": -17.2749,
+    "p_value": 0.0
    }
   },
   {
@@ -8472,10 +8556,58 @@
     "hi": 0.2476
    },
    "log_loss": 0.6868,
+   "log_loss_bits": 0.9908,
+   "decomposition": {
+    "reliability": 0.0011,
+    "resolution": 0.0031,
+    "uncertainty": 0.2495,
+    "residual": -0.0007,
+    "bins": [
+     {
+      "forecast": 0.1612,
+      "observed": 0.3333,
+      "count": 3
+     },
+     {
+      "forecast": 0.271,
+      "observed": 0.3137,
+      "count": 102
+     },
+     {
+      "forecast": 0.3721,
+      "observed": 0.3704,
+      "count": 2206
+     },
+     {
+      "forecast": 0.4657,
+      "observed": 0.4199,
+      "count": 28069
+     },
+     {
+      "forecast": 0.5373,
+      "observed": 0.5222,
+      "count": 37207
+     },
+     {
+      "forecast": 0.6265,
+      "observed": 0.5693,
+      "count": 2461
+     },
+     {
+      "forecast": 0.719,
+      "observed": 0.5556,
+      "count": 72
+     }
+    ]
+   },
    "ours_minus": {
     "value": -0.0175,
     "lo": -0.0191,
     "hi": -0.0159
+   },
+   "diebold_mariano": {
+    "statistic": -17.3487,
+    "p_value": 0.0
    }
   },
   {
@@ -8486,11 +8618,71 @@
     "hi": 0.2311
    },
    "log_loss": 0.6498,
+   "log_loss_bits": 0.9375,
+   "decomposition": {
+    "reliability": 0.0003,
+    "resolution": 0.0199,
+    "uncertainty": 0.2495,
+    "residual": -0.0007,
+    "bins": [
+     {
+      "forecast": 0.071,
+      "observed": 0.0701,
+      "count": 214
+     },
+     {
+      "forecast": 0.1628,
+      "observed": 0.1648,
+      "count": 1663
+     },
+     {
+      "forecast": 0.2586,
+      "observed": 0.2538,
+      "count": 5768
+     },
+     {
+      "forecast": 0.354,
+      "observed": 0.3498,
+      "count": 12587
+     },
+     {
+      "forecast": 0.4503,
+      "observed": 0.4491,
+      "count": 16717
+     },
+     {
+      "forecast": 0.5483,
+      "observed": 0.5304,
+      "count": 15887
+     },
+     {
+      "forecast": 0.6453,
+      "observed": 0.617,
+      "count": 10943
+     },
+     {
+      "forecast": 0.7411,
+      "observed": 0.7194,
+      "count": 5011
+     },
+     {
+      "forecast": 0.8362,
+      "observed": 0.7866,
+      "count": 1223
+     },
+     {
+      "forecast": 0.9193,
+      "observed": 0.8972,
+      "count": 107
+     }
+    ]
+   },
    "ours_minus": {
     "value": 0.0,
     "lo": 0.0,
     "hi": 0.0
-   }
+   },
+   "diebold_mariano": null
   }
  ],
  "money": {
@@ -9132,5 +9324,52 @@
     "gbp": -174.2924
    }
   ]
+ },
+ "risk": {
+  "chain/schedule": {
+   "sharpe": 3.5099,
+   "max_drawdown": 2254.9852
+  },
+  "chain/ours": {
+   "sharpe": 4.5898,
+   "max_drawdown": 1330.7092
+  },
+  "chain/ours minus chain/schedule": {
+   "sharpe": 0.5123,
+   "max_drawdown": 3643.8781
+  }
+ },
+ "markov_check": {
+  "lags": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7
+  ],
+  "observed": [
+   0.5312,
+   0.3741,
+   0.2574,
+   0.1919,
+   0.1521,
+   0.1246,
+   0.1098
+  ],
+  "geometric": [
+   0.5312,
+   0.2822,
+   0.1499,
+   0.0796,
+   0.0423,
+   0.0225,
+   0.0119
+  ],
+  "chain_ours_gbp": {
+   "geometric": 48.3012,
+   "measured": 49.2555
+  }
  }
 }

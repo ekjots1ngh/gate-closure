@@ -18,7 +18,15 @@ export interface Replay {
   tape: Row[];
   poison: { cutoff: string; decisions_checked: number; features_changed: number; forecasts_changed: number;
             decisions_changed: number; later_rows_poisoned: number };
-  forecasts: { model: string; brier: Estimate; log_loss: number; ours_minus: Estimate }[];
+  forecasts: {
+    model: string; brier: Estimate; log_loss: number; log_loss_bits: number; ours_minus: Estimate;
+    decomposition: { reliability: number; resolution: number; uncertainty: number; residual: number;
+                     bins: { forecast: number; observed: number; count: number }[] };
+    diebold_mariano: { statistic: number; p_value: number } | null;
+  }[];
+  risk: Record<string, { sharpe: number; max_drawdown: number }>;
+  markov_check: { lags: number[]; observed: number[]; geometric: number[];
+                  chain_ours_gbp: { geometric: number; measured: number } };
   money: Record<string, Estimate & { active_share: number }>;
   gain: Record<string, Gain>;
   gain_without_spike_half_hours: Record<string, Gain>;

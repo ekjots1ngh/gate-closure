@@ -16,6 +16,26 @@ Lower is better for both scores. The last column is ours minus each model, so ne
 | NESO indicated imbalance | 0.2468 [0.2460, 0.2476] | 0.6868 | -0.0175 [-0.0191, -0.0159] |
 | ours | 0.2293 [0.2276, 0.2311] | 0.6498 |  |
 
+The same forecasts, taken apart. Log loss in bits: a coin flip is exactly 1 bit, so 1 minus the number is
+the information a forecast extracts per half hour. Murphy's decomposition splits Brier into reliability
+(calibration, lower is better) minus resolution (how well it sorts half hours, higher is better) plus the
+base uncertainty (0.2495 for everyone). The Diebold-Mariano
+statistic compares each model's squared errors with ours, with a Newey-West variance over one week of lags;
+negative favours ours.
+
+| model | log loss, bits | reliability | resolution | Diebold-Mariano vs ours |
+| :--- | ---: | ---: | ---: | ---: |
+| coin (long-run share short) | 1.0000 | 0.0006 | 0.0001 | -19.0 (p < 0.0001) |
+| persistence, raw 0/1 | 2.2901 | 0.1469 | 0.0091 | -68.8 (p < 0.0001) |
+| persistence, calibrated | 0.9737 | 0.0006 | 0.0091 | -17.3 (p < 0.0001) |
+| NESO indicated imbalance | 0.9908 | 0.0011 | 0.0031 | -17.3 (p < 0.0001) |
+| ours | 0.9375 | 0.0003 | 0.0199 |  |
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="reliability_dark.svg">
+  <img alt="Reliability diagram: on the diagonal, mostly between 0.3 and 0.7" src="reliability_light.svg">
+</picture>
+
 ## Money: a 1 MW / 2 MWh battery, £ per day
 
 One step: the forecast prices the next half hour only. Chain: it also shapes the next few half hours,
@@ -64,6 +84,35 @@ Until February 2024 the stored prices are first prints; after it, Elexon's next-
 | :--- | ---: | ---: | ---: | ---: |
 | first prints, 2022-07 to 2024-01 | -0.0127 [-0.0143, -0.0111] | 60.2 | 50.8 | +9.37 [-0.29, +19.71] |
 | revised prices, 2024-02 to 2026-06 | -0.0110 [-0.0124, -0.0094] | 40.5 | 37.8 | +2.73 [-0.79, +5.93] |
+
+## Risk
+
+Annualised Sharpe ratio of daily P&L, and the largest fall from a running peak in cumulative £. The last
+row is the forecast's gain over the schedule, so its Sharpe ratio is an information ratio.
+
+| series | Sharpe ratio | max drawdown, £ |
+| :--- | ---: | ---: |
+| chain/schedule | 3.51 | 2,255 |
+| chain/ours | 4.59 | 1,331 |
+| chain/ours minus chain/schedule | 0.51 | 3,644 |
+
+## Is the side a Markov chain?
+
+The chain policy fades the forecast as a two-state Markov chain would: autocorrelation at lag h equal to
+the lag-1 value to the power h. The side's measured autocorrelation decays much more slowly, so the grid
+has longer memory than that. Fading with the measured memory instead earns
+£49.26 a day against £48.30: the
+simplification costs about a pound a day, within the noise, so the protocol's policy stands.
+
+| lag, half hours | measured autocorrelation | geometric (Markov) |
+| :--- | ---: | ---: |
+| 1 | 0.531 | 0.531 |
+| 2 | 0.374 | 0.282 |
+| 3 | 0.257 | 0.150 |
+| 4 | 0.192 | 0.080 |
+| 5 | 0.152 | 0.042 |
+| 6 | 0.125 | 0.022 |
+| 7 | 0.110 | 0.012 |
 
 ## By year, £ per day
 

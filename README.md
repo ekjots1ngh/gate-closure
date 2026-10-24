@@ -12,7 +12,7 @@ Walk-forward over four years (July 2022 to June 2026, refitted monthly, 70,120 h
 
 - **The forecast is clearly better than the baselines.** Our probability of a short system scores Brier 0.2293. Calibrated persistence scores 0.2409 and NESO's own published imbalance forecast 0.2468. Paired over the same weeks, ours is better by 0.0117 [0.0106, 0.0127].
 - **It is worth a little money, and we can say exactly how much.** The battery earns £42.9 a day on a fixed daily schedule and £48.3 with our forecast: a gain of £5.4 a day [1.0, 9.7]. Persistence and NESO's forecast both lose money against the schedule.
-- **There is an exchange rate between accuracy and money.** Scale the forecast's errors up or down and the money moves almost linearly: £8 to £10 a day per 0.01 of Brier. The line crosses the no-forecast schedule at about Brier 0.235. Trading on a coin-flip-quality forecast loses £13 to £19 a day against simply not forecasting. So the first slice of skill only pays for the right to act on a forecast at all. That is why a clearly better forecast earns only £5 more.
+- **There is an exchange rate between accuracy and money.** Scale the forecast's errors up or down and the money moves almost linearly: £8 to £10 a day per 0.01 of Brier. The line crosses the no-forecast schedule at about Brier 0.235. Trading on a coin-flip-quality forecast loses £13 to £19 a day against simply not forecasting. So the first slice of skill only pays for the right to act on a forecast at all. That is why a clearly better forecast earns only £5 more. In the language of forecast verification, ours is almost perfectly calibrated but has low resolution: it rarely strays far from 50/50.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/value_of_skill_dark.svg">
@@ -22,6 +22,27 @@ Walk-forward over four years (July 2022 to June 2026, refitted monthly, 70,120 h
 For scale, knowing the side of every half hour an hour early would earn £223 a day, and knowing every price in advance £345. A boosted-tree classifier beats our logistic model on Brier but not on money (£48.2 to £50.0 depending on the machine, against £48.3), so the simple model ships. Forecasting the price directly earns less than the fixed schedule.
 
 Every table, interval and robustness check is in [docs/RESULTS.md](docs/RESULTS.md), generated from the pipeline's output.
+
+## The maths, and what each piece does
+
+| Concept | Where you meet it | What it does here | What it showed |
+|:---|:---|:---|:---|
+| Logistic regression, fitted by maximum likelihood | 2nd-year statistics | Turns 16 gate-safe features into P(short) | Brier 0.2293, against 0.2409 for persistence |
+| Proper scoring rules: Brier score, log loss | 3rd-year statistics | Scores probabilities so that honest forecasting is the best strategy | A coin is 1 bit; ours is 0.9375, so it extracts 0.06 bits per half hour |
+| Murphy's decomposition, reliability diagram | Forecast verification | Separates calibration from resolution | Calibration near perfect (0.0003); resolution 2.2 times persistence's, but only 8% of the uncertainty |
+| Block bootstrap; Diebold-Mariano with Newey-West variance | Time series, econometrics | Honest uncertainty when errors are autocorrelated | Ours beats persistence by 0.0117 [0.0106, 0.0127]; Diebold-Mariano statistic -17 |
+| Law of total expectation, certainty equivalence | Probability, optimal control | E[price] = p × (price when short) + (1 - p) × (price when long). Cash is linear in price and the battery is too small to move it, so for the half hour being traded this one number is all the optimiser needs | Why a calibrated probability is enough: it maps straight to the expected price |
+| Dynamic programming: Bellman equation, backward induction | Algorithms, optimisation | Values every state of charge and re-plans each half hour (model predictive control) | Vectorised over 70,120 half hours: the whole study runs in seconds |
+| Two-state Markov chain | 2nd-year probability | Carries the forecast forward, fading at the side's own persistence | Tested, and too simple: the grid's memory decays more slowly than geometric. Fixing it is worth about £1 a day |
+| Expected value of information | Decision theory | Prices accuracy in pounds, with two ceilings | £8 to £10 a day per 0.01 of Brier; knowing the side £223 a day, hindsight £345 |
+| Sharpe ratio, information ratio, drawdown | Finance | Risk-adjusted view of the gain over the schedule | Information ratio 0.51 a year: real, but noisy |
+| Point-in-time as-of joins (a sorted merge), walk-forward testing | Algorithms, quant practice | No input is ever used before it was public | Poison check on a real week: 0 of 170 decisions change |
+| Mutation testing | Software engineering | Proves the leak test can actually fail | 5 leaks planted, 5 caught |
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/reliability_dark.svg">
+  <img alt="Reliability diagram: our forecasts lie on the diagonal, but most sit between 0.3 and 0.7" src="docs/reliability_light.svg" width="420">
+</picture>
 
 ## One decision, in time
 
@@ -85,7 +106,7 @@ Python 3.11 or later, any OS. About three minutes from a clean clone, with no ne
 pip install -e ".[dev]"            # or: pip install -r requirements.txt
 make reproduce                     # or run the lines below in order
 
-python -m pytest -q                # 12 tests, about 15 s
+python -m pytest -q                # 17 tests, about 15 s
 python -m gclose.features          # gate-safe feature table from data/raw (12 s)
 python -m gclose.backtest          # walk-forward forecasts, Brier and log loss
 python -m gclose.price_models      # the boosted and ridge checks (1.5 min)
@@ -109,7 +130,7 @@ gclose/backtest.py       the walk-forward driver, and forecast scores
 gclose/price_models.py   would a fancier model have paid? ridge and boosted, same driver
 gclose/battery.py        the battery: vectorised dynamic programme, sequential path
 gclose/decide.py         one optimiser, many forecasts: money, ceilings, robustness, value of skill
-gclose/stats.py          week-block bootstrap and paired intervals, vectorised
+gclose/stats.py          bootstrap, scoring rules, Murphy's decomposition, Diebold-Mariano, risk
 gclose/receipts.py       the poison check end to end on a real week
 gclose/report.py         docs/RESULTS.md and the figures, rendered from results.json
 gclose/figures.py        README figures in light and dark

@@ -17,7 +17,8 @@ Two policy families:
   chain   the forecast also shapes the next CHAIN_STEPS - 1 periods, because the side persists:
           p(t+h) = short_share[s+h] + (p - short_share[s]) * side_autocorr ** h. The
           autocorrelation is about 0.5, so the forecast's pull halves every half hour. Fed the
-          base rate (p = short_share), this is exactly the schedule.
+          base rate (p = short_share), this is exactly the schedule. That geometric fade is a
+          two-state Markov chain's; `markov_check` tests it against the side's measured memory.
 
 Policies are named family/forecaster: one/ours, chain/schedule, price/ridge. Two reference
 points: */side_oracle knows the side of period t in advance (not its price, nor anything
@@ -58,14 +59,15 @@ class Tables:
     mu_short: np.ndarray
     mu_long: np.ndarray
     short_share: np.ndarray
-    side_autocorr: np.ndarray  # (months,)
+    side_autocorr: np.ndarray  # (months,): lag-1 autocorrelation of the side
+    side_memory: np.ndarray  # (months, CHAIN_STEPS - 1): measured autocorrelation at lags 1, 2, ...
     value: np.ndarray  # (months, 48, K): value of each SoC level at the start of each slot
 
     @classmethod
     def build(cls, table: pd.DataFrame, months: list[str]) -> Tables:
         slots = pd.Index(range(PERIODS_PER_DAY))
         columns: dict[str, list] = {
-            name: [] for name in ("profile", "mu_short", "mu_long", "short_share", "side_autocorr")
+            name: [] for name in ("profile", "mu_short", "mu_long", "short_share", "side_autocorr", "side_memory")
         }
         for month in months:
             start = pd.Timestamp(f"{month}-01", tz="UTC")
@@ -79,6 +81,7 @@ class Tables:
             columns["mu_long"].append(by_side[0].fillna(profile).to_numpy())
             columns["short_share"].append(history.groupby(slot)["short"].mean().reindex(slots).fillna(0.5).to_numpy())
             columns["side_autocorr"].append(np.clip(np.corrcoef(side[1:], side[:-1])[0, 1], 0.0, 0.99))
+            columns["side_memory"].append(stats.autocorrelation(side, CHAIN_STEPS - 1))
         arrays = {name: np.array(values) for name, values in columns.items()}
         value = np.stack([battery.value_tables(profile) for profile in arrays["profile"]])
         return cls(value=value, **arrays)
@@ -140,13 +143,20 @@ class TestPeriods:
         """Q-values when the forecast informs period t only."""
         return battery.q_values(self.table_at("value", ahead=1), price_now)
 
-    def chain(self, p_short: np.ndarray) -> np.ndarray:
-        """Q-values when P(short) also shapes the next CHAIN_STEPS - 1 periods, fading to the base rate."""
+    def chain(self, p_short: np.ndarray, memory: str = "geometric") -> np.ndarray:
+        """Q-values when P(short) also shapes the next CHAIN_STEPS - 1 periods, fading to the base rate.
+
+        memory="geometric" fades by side_autocorr ** h, as a two-state Markov chain would (the
+        protocol's policy); memory="measured" fades by the side's measured autocorrelation at lag h.
+        """
         v = self.table_at("value", ahead=CHAIN_STEPS)
         base_rate = self.table_at("short_share")
-        fade = self.tables.side_autocorr[self.month_idx]
         for h in range(CHAIN_STEPS - 1, 0, -1):
-            p_ahead = np.clip(self.table_at("short_share", h) + (p_short - base_rate) * fade**h, 0, 1)
+            if memory == "geometric":
+                fade = self.tables.side_autocorr[self.month_idx] ** h
+            else:
+                fade = self.tables.side_memory[self.month_idx, h - 1]
+            p_ahead = np.clip(self.table_at("short_share", h) + (p_short - base_rate) * fade, 0, 1)
             v = battery.bellman(v, self.expected_price(p_ahead, ahead=h))
         return battery.q_values(v, self.expected_price(p_short))
 
@@ -195,29 +205,64 @@ def money(daily: pd.DataFrame, trajectories: dict[str, Trajectory]) -> dict[str,
     }
 
 
+def _gain(d: pd.DataFrame | pd.Series, policy: str, schedule: str) -> pd.Series | float:
+    return d[policy] - d[schedule]
+
+
+def _share(d: pd.DataFrame | pd.Series, policy: str, schedule: str, oracle: str) -> pd.Series | float:
+    return _gain(d, policy, schedule) / (d[oracle] - d[schedule])
+
+
 def gains(daily: pd.DataFrame) -> dict[str, dict]:
     """Each forecast's gain over the schedule in GBP per day, and as a share of the gap to the side oracle."""
     boot = pd.DataFrame(stats.resampled_means(daily.to_numpy(), stats.week_index(daily.index)), columns=daily.columns)
+    means = daily.mean()
     out = {}
     for family in FAMILIES:
         schedule, oracle = f"{family}/schedule", f"{family}/side_oracle"
         for name in SIDE_FORECASTERS[:-1]:
             policy = f"{family}/{name}"
-
-            def gain(d: pd.DataFrame, policy: str = policy, schedule: str = schedule) -> pd.Series | float:
-                return d[policy] - d[schedule]
-
-            def share(
-                d: pd.DataFrame, policy: str = policy, schedule: str = schedule, oracle: str = oracle
-            ) -> pd.Series | float:
-                return (d[policy] - d[schedule]) / (d[oracle] - d[schedule])
-
-            means = daily.mean()
             out[policy] = {
-                "gbp": stats.estimate(gain(means), gain(boot)),
-                "share": stats.estimate(share(means), share(boot)),
+                "gbp": stats.estimate(_gain(means, policy, schedule), _gain(boot, policy, schedule)),
+                "share": stats.estimate(
+                    _share(means, policy, schedule, oracle), _share(boot, policy, schedule, oracle)
+                ),
             }
     return out
+
+
+def risk(daily: pd.DataFrame) -> dict[str, dict]:
+    """Sharpe ratio and drawdown of the schedule, of ours, and of ours' gain over the schedule.
+
+    The last is an information ratio: the reward per unit of risk for trusting the forecast
+    over the benchmark.
+    """
+    return {
+        "chain/schedule": stats.risk(daily["chain/schedule"]),
+        "chain/ours": stats.risk(daily["chain/ours"]),
+        "chain/ours minus chain/schedule": stats.risk(daily["chain/ours"] - daily["chain/schedule"]),
+    }
+
+
+def markov_check(periods: TestPeriods) -> dict:
+    """Does the side fade like a two-state Markov chain? And does it matter for money?
+
+    Compares the side's measured autocorrelation over the test period with the geometric decay
+    the chain policy assumes, then reruns chain/ours with the measured memory instead.
+    """
+    observed = stats.autocorrelation(periods.rows["short"].to_numpy(), CHAIN_STEPS - 1)
+    lags = np.arange(1, CHAIN_STEPS)
+    p_ours = periods.side_forecasts()["ours"]
+    gbp = {
+        memory: float(periods.daily(periods.trade(periods.chain(p_ours, memory)).pnl).mean())
+        for memory in ("geometric", "measured")
+    }
+    return {
+        "lags": lags.tolist(),
+        "observed": observed.tolist(),
+        "geometric": (observed[0] ** lags).tolist(),
+        "chain_ours_gbp": gbp,
+    }
 
 
 def without_spike_half_hours(periods: TestPeriods, trajectories: dict[str, Trajectory]) -> pd.DataFrame:
@@ -298,6 +343,8 @@ def run_study() -> Study:
         "by_era": by_era(periods, daily),
         "by_year": by_year(daily),
         "value_of_skill": value_of_skill(periods),
+        "risk": risk(daily),
+        "markov_check": markov_check(periods),
     }
     return Study(periods, trajectories, daily, results)
 

@@ -120,10 +120,48 @@ def value_of_skill(results: dict, theme: str) -> plt.Figure:
     return fig
 
 
+def reliability(results: dict, theme: str) -> plt.Figure:
+    """Our forecast's reliability diagram, and how often it ventures far from a coin flip.
+
+    Points on the diagonal mean a forecast of p comes true a share p of the time (calibration).
+    The lower panel shows how rarely the forecast is confident, which is what limits resolution.
+    """
+    colors = THEMES[theme]
+    ours = next(s for s in results["forecasts"] if s["model"] == "ours")["decomposition"]
+    bins = ours["bins"]
+    forecast = np.array([b["forecast"] for b in bins])
+    observed = np.array([b["observed"] for b in bins])
+    share = np.array([b["count"] for b in bins]) / sum(b["count"] for b in bins)
+
+    plt.rcParams.update({"font.family": "sans-serif", "font.sans-serif": ["DejaVu Sans"], "svg.fonttype": "none"})
+    fig, (top, bottom) = plt.subplots(
+        2, 1, figsize=(5.2, 5.4), sharex=True, gridspec_kw={"height_ratios": [3, 1]}, layout="constrained"
+    )
+    fig.patch.set_alpha(0)
+    for ax in (top, bottom):
+        _style(ax, colors)
+        ax.patch.set_alpha(0)
+    top.plot([0, 1], [0, 1], color=colors["muted"], linewidth=1, linestyle=(0, (4, 3)), zorder=1)
+    top.plot(forecast, observed, color=colors["series"], linewidth=2, marker="o", markersize=5, zorder=2)
+    top.set_xlim(0, 1)
+    top.set_ylim(0, 1)
+    top.set_ylabel("share that came true", color=colors["muted"], fontsize=9)
+    top.text(0.04, 0.9, "dashed line: perfect calibration", color=colors["muted"], fontsize=9)
+    top.set_title("Well calibrated, rarely confident", loc="left", color=colors["ink"], fontsize=11, pad=10)
+    bottom.bar(forecast, share, width=0.07, color=colors["series"], alpha=0.85)
+    bottom.set_ylabel("share of\nforecasts", color=colors["muted"], fontsize=9)
+    bottom.set_xlabel("forecast probability that the grid is short", color=colors["muted"], fontsize=9)
+    return fig
+
+
+FIGURES = {"value_of_skill": value_of_skill, "reliability": reliability}
+
+
 def write_all(results: dict) -> None:
     """Every README figure, in both themes, into docs/."""
     DOCS.mkdir(exist_ok=True)
-    for theme in THEMES:
-        fig = value_of_skill(results, theme)
-        fig.savefig(DOCS / f"value_of_skill_{theme}.svg", transparent=True, metadata={"Date": None})
-        plt.close(fig)
+    for name, draw in FIGURES.items():
+        for theme in THEMES:
+            fig = draw(results, theme)
+            fig.savefig(DOCS / f"{name}_{theme}.svg", transparent=True, metadata={"Date": None})
+            plt.close(fig)
