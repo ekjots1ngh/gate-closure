@@ -1,94 +1,80 @@
-"""Walk-forward scoring of the P(short) forecasts.
+"""The walk-forward: every forecaster refitted each month on what was public before it.
 
-Each test month, every model is refitted on all data before that month and scored on the
-month itself. The holdout (July to October 2026) is never touched here.
+Each test month, a forecaster is fitted on every outcome public at that month's first gate and
+scored on the month itself. The holdout (from HOLDOUT_START) is never touched here. The same
+driver runs the boosted and ridge checks in gclose.price_models.
 
-Run: python -m gclose.backtest   ->  data/out/walkforward.parquet and the Brier table.
+Run: python -m gclose.backtest   ->  data/out/forecasts.parquet, and the forecast scores
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from pathlib import Path
+from collections.abc import Callable, Iterator
+from typing import NamedTuple
 
 import numpy as np
 import pandas as pd
 
-from . import GATE_CLOSURE, stats
-from .features import build
+from . import FIRST_TEST_MONTH, GATE_LEAD, HOLDOUT_START, LAST_TEST_MONTH, OUT, stats
+from .features import load_table
 from .models import LADDER
 
-OUT = Path(__file__).resolve().parent.parent / "data" / "out"
+FORECASTS = OUT / "forecasts.parquet"
 
-TRAIN_END = pd.Timestamp("2026-07-01", tz="UTC")   # first holdout instant; nothing at or after it is used
-FIRST_TEST, LAST_TEST = "2022-07", "2026-06"      # PROTOCOL.md amendment 1
-
-
-def load_features(rebuild: bool = False) -> pd.DataFrame:
-    """The cached feature table, rebuilt from data/raw if missing or asked to."""
-    cache = OUT / "features.parquet"
-    if cache.exists() and not rebuild:
-        return pd.read_parquet(cache)
-    from .ingest import load
-    f = build(load("prices"), load("WINDFOR"), load("NDF"), load("IMBALNGC"))
-    OUT.mkdir(parents=True, exist_ok=True)
-    f.to_parquet(cache, index=False)
-    return f
+FitPredict = Callable[[pd.DataFrame, pd.DataFrame], dict[str, np.ndarray]]
 
 
-def test_months(f: pd.DataFrame) -> Iterator[tuple[str, pd.Series, pd.Series]]:
-    """(month, train mask, test mask) for each walk-forward month, oldest first.
+class Split(NamedTuple):
+    month: str
+    train: pd.Series  # boolean mask: outcomes public at the month's first gate
+    test: pd.Series  # boolean mask: the month's half hours
 
-    The refit for a month may learn only from outcomes public at that month's first gate,
-    so training rows are those whose stored price was created before T0 - 60 min.
+
+def monthly_splits(table: pd.DataFrame) -> Iterator[Split]:
+    """One split per walk-forward month, oldest first.
+
+    A row is a training row if its stored price was created before the month's first gate,
+    T0 - GATE_LEAD, so the refit learns only outcomes that were public by then.
     """
-    for m in pd.period_range(FIRST_TEST, LAST_TEST, freq="M"):
-        t0 = m.start_time.tz_localize("UTC")
-        t1 = (m + 1).start_time.tz_localize("UTC")
-        yield str(m), f["created_at"] < t0 - GATE_CLOSURE, (f["start_time"] >= t0) & (f["start_time"] < t1)
+    for month in pd.period_range(FIRST_TEST_MONTH, LAST_TEST_MONTH, freq="M"):
+        t0 = month.start_time.tz_localize("UTC")
+        t1 = (month + 1).start_time.tz_localize("UTC")
+        yield Split(
+            str(month), table["created_at"] < t0 - GATE_LEAD, (table["start_time"] >= t0) & (table["start_time"] < t1)
+        )
 
 
-def walk_forward(f: pd.DataFrame) -> pd.DataFrame:
-    """Out-of-sample P(short) from every model in the ladder, for every test month."""
-    f = f[f["start_time"] < TRAIN_END]
-    blocks = []
-    for _, train, test in test_months(f):
-        block = f.loc[test, ["start_time", "short", "ssp"]].copy()
-        for name, model in LADDER.items():
-            block[f"p_{name}"] = model().fit(f[train]).predict_proba(f[test])
-        blocks.append(block)
-    return pd.concat(blocks, ignore_index=True)
+def walk_forward(table: pd.DataFrame, fit_predict: FitPredict) -> pd.DataFrame:
+    """Out-of-sample columns from `fit_predict(train, test)` for every test month, stacked."""
+    table = table[table["start_time"] < HOLDOUT_START]
+    months = []
+    for split in monthly_splits(table):
+        test = table[split.test]
+        months.append(test[["start_time", "short", "ssp"]].assign(**fit_predict(table[split.train], test)))
+    return pd.concat(months, ignore_index=True)
 
 
-def brier_table(preds: pd.DataFrame) -> pd.DataFrame:
-    """Brier score and log loss per model, with 90% week-block intervals.
+def ladder(train: pd.DataFrame, test: pd.DataFrame) -> dict[str, np.ndarray]:
+    """P(short) from every forecaster in the protocol's ladder."""
+    return {f"p_{name}": forecaster().fit(train).predict_proba(test) for name, forecaster in LADDER.items()}
 
-    `ours_minus` is ours' Brier minus the model's, resampled in pairs (same weeks for both),
-    which is the right interval for "does ours beat it": negative and excluding zero means yes.
-    """
-    y = preds["short"].to_numpy()[:, None]
-    names = list(LADDER)
-    p = np.column_stack([preds[f"p_{n}"].to_numpy() for n in names])
-    sq_err = (p - y) ** 2
-    q = np.clip(p, 1e-6, 1 - 1e-6)
-    log_loss = -(y * np.log(q) + (1 - y) * np.log(1 - q)).mean(axis=0)
-    edge = sq_err[:, [names.index("ours")]] - sq_err
-    boot = stats.resampled_means(np.hstack([sq_err, edge]), stats.week_index(preds["start_time"]))
-    rows = []
-    for j, name in enumerate(names):
-        lo, hi = stats.interval(boot[:, j])
-        e_lo, e_hi = stats.interval(boot[:, len(names) + j])
-        rows.append({"model": name, "brier": round(sq_err[:, j].mean(), 4), "lo": round(lo, 4), "hi": round(hi, 4),
-                     "log_loss": round(log_loss[j], 4), "ours_minus": round(edge[:, j].mean(), 4),
-                     "ours_minus_lo": round(e_lo, 4), "ours_minus_hi": round(e_hi, 4)})
-    return pd.DataFrame(rows)
+
+def scores(forecasts: pd.DataFrame) -> list[dict]:
+    """Brier and log loss for every forecaster in the ladder, with paired intervals against ours."""
+    probs = {name: forecasts[f"p_{name}"].to_numpy() for name in LADDER}
+    return stats.forecast_scores(forecasts["short"].to_numpy(), probs, stats.week_index(forecasts["start_time"]))
 
 
 def main() -> None:
-    preds = walk_forward(load_features())
-    preds.to_parquet(OUT / "walkforward.parquet", index=False)
-    print(f"walk-forward {FIRST_TEST} to {LAST_TEST}, {len(preds):,} half hours")
-    print(brier_table(preds).to_string(index=False))
+    forecasts = walk_forward(load_table(), ladder)
+    forecasts.to_parquet(FORECASTS, index=False)
+    print(f"walk-forward {FIRST_TEST_MONTH} to {LAST_TEST_MONTH}, {len(forecasts):,} half hours")
+    for s in scores(forecasts):
+        b, d = s["brier"], s["ours_minus"]
+        print(
+            f"  {s['model']:16s} Brier {b['value']:.4f} [{b['lo']:.4f}, {b['hi']:.4f}]   "
+            f"log loss {s['log_loss']:.4f}   ours minus {d['value']:+.4f} [{d['lo']:+.4f}, {d['hi']:+.4f}]"
+        )
 
 
 if __name__ == "__main__":

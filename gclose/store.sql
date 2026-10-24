@@ -1,6 +1,7 @@
--- Tiger Data / TimescaleDB schema. Every table is keyed on UTC start_time; the
--- forecasts hypertable is partitioned on publish_time so superseded vintages are kept.
--- The as-of query at the bottom is the one join the whole project depends on.
+-- A sketch for the Tiger Data (TimescaleDB) side track. The Python pipeline does not use it,
+-- and it has not been run against a database. It mirrors the pandas store: prices keyed on UTC
+-- start_time, forecast vintages partitioned on publish_time so superseded versions are kept,
+-- and the as-of join in gclose/features.py written in SQL (without the demand revision).
 
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 
@@ -27,24 +28,20 @@ CREATE TABLE IF NOT EXISTS forecasts (
 SELECT create_hypertable('forecasts', 'publish_time', if_not_exists => TRUE);
 CREATE INDEX IF NOT EXISTS forecasts_asof ON forecasts (dataset, boundary, start_time, publish_time DESC);
 
--- Live ledger: one row per decision, inserted_at is the server clock, never the client's.
+-- Live ledger: one row per decision; inserted_at is the server clock, never the client's.
 CREATE TABLE IF NOT EXISTS ledger (
     inserted_at   timestamptz NOT NULL DEFAULT now(),
-    decided_at    timestamptz NOT NULL,   -- when the model says it decided (must be < target - 60 min)
+    decided_at    timestamptz NOT NULL,   -- must be before target_start - 60 min
     target_start  timestamptz NOT NULL,
     p_short       double precision,
-    price_p10     double precision,
-    price_p50     double precision,
-    price_p90     double precision,
-    action        text,                   -- charge | discharge | hold
+    action        smallint,               -- +1 discharge, -1 charge, 0 hold
     soc_mwh       double precision,
     model_hash    text
 );
 SELECT create_hypertable('ledger', 'inserted_at', if_not_exists => TRUE);
 
--- The as-of join. For each target period, the newest vintage of each dataset
--- published strictly before gate closure (start_time - 60 min). This is the only
--- place features are allowed to see forecast data.
+-- The as-of join: for each target period, the newest vintage of each dataset published
+-- strictly before gate closure (start_time - 60 min).
 -- Usage: SELECT * FROM asof_features('2026-10-20 00:00+00', '2026-10-21 00:00+00');
 CREATE OR REPLACE FUNCTION asof_features(t0 timestamptz, t1 timestamptz)
 RETURNS TABLE (
