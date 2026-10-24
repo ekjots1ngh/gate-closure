@@ -1,100 +1,97 @@
-"""The battery and its policies. Decision at the gate for period t; paid the realised price.
+"""The battery: physics, cash flows and the dynamic programme.
 
-Battery per PROTOCOL.md: 1 MW, 2 MWh, 0.5 MWh per half hour, 85% round trip,
-5 GBP/MWh wear, SoC in [0, 2], daily loss limit 500 GBP then hold until midnight UTC.
+1 MW / 2 MWh, so one half-hour step moves 0.5 MWh and the state of charge (SoC) lives on
+five levels: 0, 0.5, 1.0, 1.5, 2.0 MWh. Losses are taken on the way out (discharging 0.5 MWh
+delivers 85% of it), wear costs GBP 5 per MWh moved in either direction, and after a day's
+losses pass GBP 500 the battery holds until midnight UTC.
 
-A policy is a function (row, soc) -> action in {-1 charge, 0 hold, +1 discharge}
-where row carries the gate-safe features plus whatever forecast columns the policy needs
-(p_short, price_p50, ...). simulate() walks the periods in order and returns a P&L series.
+The optimiser is split in two because the two halves have different shapes:
+  * Values ("what is each SoC level worth from here on") depend only on prices, never on
+    the path the battery took, so they are computed for every period at once with numpy.
+  * The path (SoC, the daily loss limit) is inherently sequential, so that loop does
+    nothing but look up the best action for the current SoC.
 """
 
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
 
-STEP_MWH = 0.5
-CAP_MWH = 2.0
-EFF = 0.85
-WEAR = 5.0            # GBP per MWh of throughput
-DAILY_LOSS_LIMIT = 500.0
+STEP = 0.5                 # MWh moved per half hour at 1 MW
+CAP = 2.0                  # MWh
+EFF = 0.85                 # round-trip efficiency, applied on discharge
+WEAR = 5.0                 # GBP per MWh moved
+DAILY_LOSS_LIMIT = 500.0   # GBP; hold for the rest of the UTC day once breached
+
+SOC = np.arange(0.0, CAP + STEP / 2, STEP)
+K = len(SOC)
+
+# Action order matters: argmax returns the first maximum, so ties resolve to hold,
+# then discharge, then charge. A battery should never trade on a tie.
+HOLD, DISCHARGE, CHARGE = 0, 1, 2
+MOVE = np.array([0, -1, +1])        # change in SoC level for each action
+LABEL = np.array([0, +1, -1])       # public convention: +1 discharge, -1 charge
 
 
-def simulate(df: pd.DataFrame, policy, price_col: str = "ssp") -> pd.DataFrame:
-    """Walk every period in df (sorted by start_time) and apply the policy.
+def cash(price) -> np.ndarray:
+    """Cash for (hold, discharge, charge) at `price`. Any shape in, shape + (3,) out."""
+    price = np.asarray(price, dtype=float)
+    return np.stack([np.zeros_like(price),
+                     STEP * (EFF * price - WEAR),
+                     -STEP * (price + WEAR)], axis=-1)
 
-    Discharging sells STEP_MWH at the realised price. Charging buys STEP_MWH / EFF... we put
-    the loss on the way out instead: charge stores STEP_MWH, discharge delivers STEP_MWH * EFF.
+
+def q_values(v_next: np.ndarray, price) -> np.ndarray:
+    """Q[..., k, a]: cash now plus the value of the SoC level that action a leads to.
+
+    v_next has shape (..., K) and price broadcasts against (...). Moves past empty or
+    full are -inf so they can never be chosen.
     """
-    soc = 0.0
-    day = None
-    day_pnl = 0.0
-    halted = False
-    out = []
-    for row in df.itertuples(index=False):
-        t = row.start_time
-        if day != t.date():
-            day, day_pnl, halted = t.date(), 0.0, False
-        a = 0 if halted else int(policy(row, soc))
-        price = getattr(row, price_col)
-        pnl = 0.0
-        if a == 1 and soc >= STEP_MWH:
-            soc -= STEP_MWH
-            pnl = STEP_MWH * EFF * price - STEP_MWH * WEAR
-        elif a == -1 and soc + STEP_MWH <= CAP_MWH:
-            soc += STEP_MWH
-            pnl = -STEP_MWH * price - STEP_MWH * WEAR
-        else:
-            a = 0
-        day_pnl += pnl
-        if day_pnl < -DAILY_LOSS_LIMIT:
-            halted = True
-        out.append((t, a, soc, pnl))
-    return pd.DataFrame(out, columns=["start_time", "action", "soc", "pnl"])
+    c = cash(price)[..., None, :]                                   # (..., 1, 3)
+    q = np.full(v_next.shape + (3,), -np.inf)
+    q[..., HOLD] = v_next
+    q[..., 1:, DISCHARGE] = c[..., DISCHARGE] + v_next[..., :-1]
+    q[..., :-1, CHARGE] = c[..., CHARGE] + v_next[..., 1:]
+    return q
 
 
-# ------------------------------------------------------------------ policies
-
-def fixed_cycle(charge_hours=(1, 2, 3, 4), discharge_hours=(17, 18, 19, 20)):
-    """The tilt: charge in cheap overnight hours, discharge in the evening peak. No forecast."""
-    def policy(row, soc):
-        h = row.start_time.hour
-        if h in charge_hours:
-            return -1
-        if h in discharge_hours:
-            return 1
-        return 0
-    return policy
+def bellman(v_next: np.ndarray, price) -> np.ndarray:
+    """One step of backward induction: value of each SoC level before a period at `price`."""
+    return q_values(v_next, price).max(axis=-1)
 
 
-def persistence_rule():
-    """Discharge if t-4 was short, charge if it was long."""
-    def policy(row, soc):
-        s = row.short_lag4
-        if s != s:        # NaN
-            return 0
-        return 1 if s == 1 else -1
-    return policy
+def value_tables(profile: np.ndarray, horizon: int = 47) -> np.ndarray:
+    """V[s, k]: value of SoC level k at the start of half-hour slot s.
+
+    Plans `horizon` steps ahead on a 48-slot daily price profile. All 48 starting slots are
+    solved together, one vectorised Bellman step per lookahead step.
+    """
+    start = np.arange(48)
+    v = np.zeros((48, K))
+    for h in range(horizon - 1, -1, -1):
+        v = bellman(v, profile[(start + h) % 48])
+    return v
 
 
-def threshold_rule(p_col="p_short", hi=0.65, lo=0.35):
-    """Point-forecast policy, simplest form: act when P(short) is confident."""
-    def policy(row, soc):
-        p = getattr(row, p_col)
-        if p >= hi:
-            return 1
-        if p <= lo:
-            return -1
-        return 0
-    return policy
+def simulate(q: np.ndarray, realised: np.ndarray, day: np.ndarray):
+    """Walk the battery through time.
 
-
-def oracle():
-    """Perfect foresight on the sign of the imbalance. The ceiling for the DP to chase."""
-    def policy(row, soc):
-        return 1 if row.short == 1 else -1
-    return policy
-
-
-# TODO (after the 18:00 gate): point_dp(horizon=12) and distribution_dp(two-state chain)
-# as value iteration over soc in {0, 0.5, ..., 2} using price_p50 / per-state quantiles.
+    q:        (n, K, 3) Q-values per period, built from forecasts known at the gate.
+    realised: (n,) settled prices; they decide the cash, never the action.
+    day:      (n,) UTC date of each period, for the daily loss limit.
+    Returns (action label, SoC after the period, cash) as three (n,) arrays.
+    """
+    best = q.argmax(axis=-1)            # (n, K): the best action for every SoC the battery could be at
+    paid = cash(realised)               # (n, 3): what each action actually paid
+    n = len(realised)
+    action, soc, pnl = np.empty(n, dtype=np.int8), np.empty(n), np.empty(n)
+    k, today, day_pnl, halted = 0, None, 0.0, False
+    for i in range(n):
+        if day[i] != today:
+            today, day_pnl, halted = day[i], 0.0, False
+        a = HOLD if halted else best[i, k]
+        k += MOVE[a]
+        pnl[i] = paid[i, a]
+        day_pnl += pnl[i]
+        halted = halted or day_pnl < -DAILY_LOSS_LIMIT
+        action[i], soc[i] = LABEL[a], SOC[k]
+    return action, soc, pnl

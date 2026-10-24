@@ -1,16 +1,19 @@
-"""Build the gate-safe feature table from data/raw and cache it at data/out/features.parquet."""
+"""Rebuild the gate-safe feature table from data/raw into data/out/features.parquet.
 
+Run from the repo root: python scripts/build_features.py
+"""
+
+import sys
 import time
 from pathlib import Path
 
-from gclose.backtest import load_features
-from gclose.features import FEATURES
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from gclose.backtest import load_features  # noqa: E402
+from gclose.features import FEATURES  # noqa: E402
 
 t0 = time.time()
-out = Path(__file__).resolve().parent.parent / "data" / "out"
-out.mkdir(parents=True, exist_ok=True)
-f = load_features()
-f.to_parquet(out / "features.parquet", index=False)
+f = load_features(rebuild=True)
 print(f"{len(f):,} rows in {time.time() - t0:.0f}s")
 print("share missing per feature:")
 print(f[FEATURES].isna().mean().round(3).to_string())

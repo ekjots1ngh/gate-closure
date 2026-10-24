@@ -1,12 +1,14 @@
-"""Point-in-time feature table.
+"""Point-in-time feature table: one row per half hour, built only from what was public at the gate.
 
-The one rule: for target period t starting at T, a feature may only use rows whose
-publish_time (forecasts) or whose own start_time + 30 min + 15 min (prices, i.e. when the
-indicative print exists) is before the gate, T - 60 min. In practice the newest price
-known at the gate is period t-4.
+The rule: the decision for period t (starting at T) is made at the gate, T - 60 min. A
+forecast row may be used only if its publish_time is strictly before the gate. A price row
+exists 15 minutes after its period ends, so the newest price visible at the gate is for
+period t-4 (t-3 ends exactly at the gate and prints 15 minutes too late).
 
-This is the pandas twin of asof_features() in store.sql so the pipeline runs with no
-database. Both must agree; tests/test_asof.py checks that on a sample.
+Lags are taken by row on the time-sorted table. Where Elexon is missing a period (a handful
+of days have 45 or 47), a lag reaches slightly further back: staler, never later.
+
+`asof_features()` in store.sql is the database twin of `_latest_before()` below.
 """
 
 from __future__ import annotations
@@ -16,30 +18,29 @@ import pandas as pd
 
 from . import GATE_CLOSURE, PRICE_LAG_PERIODS
 
-RAW_COLS = ["start_time", "ssp", "niv"]
+TS = "datetime64[ns, UTC]"   # one timestamp dtype everywhere: merge_asof refuses mixed resolutions
 
 
-def _asof_vintage(targets: pd.DataFrame, vint: pd.DataFrame, key_time: str, name: str,
-                  previous: bool = False) -> pd.Series:
-    """Newest vintage per target published strictly before the gate.
+def _latest_before(keys: pd.Series, at: pd.Series, vint: pd.DataFrame) -> pd.DataFrame:
+    """Newest vintage for each row: start_time == keys[i] and publish_time strictly before at[i].
 
-    targets: start_time, gate, and key_time (the forecast start_time to match on).
-    vint: dataset rows with publish_time, start_time, value.
-    If previous=True, return the vintage before the newest one (for revision features).
+    One merge_asof does this for every row at once: rows are sorted by `at`, vintages by
+    publish_time, and `by` keeps each forecast matched to its own target period.
+    Returns `value` and `publish_time`, aligned to the input index (NaN where none exists).
     """
-    v = vint.sort_values("publish_time")
-    out = pd.Series(np.nan, index=targets.index, name=name)
-    groups = {k: g for k, g in v.groupby("start_time")}
-    pubs = {k: g["publish_time"].to_numpy() for k, g in groups.items()}
-    vals = {k: g["value"].to_numpy() for k, g in groups.items()}
-    for i, (kt, gate) in enumerate(zip(targets[key_time].to_numpy(), targets["gate"].to_numpy())):
-        if kt not in pubs:
-            continue
-        n = np.searchsorted(pubs[kt], gate, side="left")   # vintages strictly before gate
-        idx = n - 2 if previous else n - 1
-        if idx >= 0:
-            out.iat[i] = vals[kt][idx]
-    return out
+    left = pd.DataFrame({"start_time": keys.astype(TS), "at": at.astype(TS)}, index=keys.index)
+    left = left.dropna().reset_index().sort_values("at")
+    right = vint[["start_time", "publish_time", "value"]].astype({"start_time": TS, "publish_time": TS})
+    m = pd.merge_asof(left, right.sort_values("publish_time"), left_on="at", right_on="publish_time",
+                      by="start_time", direction="backward", allow_exact_matches=False)
+    return m.set_index("index")[["value", "publish_time"]].reindex(keys.index)
+
+
+def _latest_and_previous(keys: pd.Series, gate: pd.Series, vint: pd.DataFrame):
+    """The newest vintage before the gate, and the one before that (for revision features)."""
+    latest = _latest_before(keys, gate, vint)
+    previous = _latest_before(keys, latest["publish_time"], vint)
+    return latest["value"], previous["value"]
 
 
 def _national(df: pd.DataFrame, name: str) -> pd.DataFrame:
@@ -53,37 +54,39 @@ def _national(df: pd.DataFrame, name: str) -> pd.DataFrame:
 
 
 def build(prices: pd.DataFrame, windfor: pd.DataFrame, ndf: pd.DataFrame, imbalngc: pd.DataFrame) -> pd.DataFrame:
-    """Return one row per settlement period with targets and gate-safe features."""
-    p = prices[RAW_COLS].copy().sort_values("start_time").reset_index(drop=True)
+    """Targets and gate-safe features, one row per settlement period, sorted by start_time."""
+    p = prices[["start_time", "ssp", "niv"]].sort_values("start_time").reset_index(drop=True)
+    p["start_time"] = p["start_time"].astype(TS)
     p["gate"] = p["start_time"] - GATE_CLOSURE
     p["short"] = (p["niv"] > 0).astype(int)
 
-    # Lagged state. Period t-4 is the newest whose indicative price existed at the gate.
-    for k in (PRICE_LAG_PERIODS, PRICE_LAG_PERIODS + 1, PRICE_LAG_PERIODS + 2):
+    # Recent state of the system, from the newest settled periods.
+    lag = PRICE_LAG_PERIODS
+    for k in (lag, lag + 1, lag + 2):
         p[f"short_lag{k}"] = p["short"].shift(k)
+    for k in (lag, lag + 1):
         p[f"niv_lag{k}"] = p["niv"].shift(k)
-    p["ssp_lag4"] = p["ssp"].shift(PRICE_LAG_PERIODS)
-    lagged = p["ssp"].shift(PRICE_LAG_PERIODS)
-    p["ssp_mean48"] = lagged.rolling(48, min_periods=24).mean()
-    p["ssp_std48"] = lagged.rolling(48, min_periods=24).std()
-    s = p["short"].shift(PRICE_LAG_PERIODS)
-    p["streak"] = s.groupby((s != s.shift()).cumsum()).cumcount() + 1
+    seen = p["ssp"].shift(lag)
+    p["ssp_lag4"] = seen
+    p["ssp_mean48"] = seen.rolling(48, min_periods=24).mean()
+    p["ssp_std48"] = seen.rolling(48, min_periods=24).std()
+    side = p["short"].shift(lag)
+    p["streak"] = side.groupby((side != side.shift()).cumsum()).cumcount() + 1   # length of the current run
 
-    # Forecast vintages, as-of the gate. WINDFOR is hourly: match on the hour.
-    p["hour_start"] = p["start_time"].dt.floor("h")
-    ndf_n, imb_n = _national(ndf, "NDF"), _national(imbalngc, "IMBALNGC")
-    p["wind_latest"] = _asof_vintage(p, windfor, "hour_start", "wind_latest")
-    p["wind_prev"] = _asof_vintage(p, windfor, "hour_start", "wind_prev", previous=True)
-    p["wind_revision"] = p["wind_latest"] - p["wind_prev"]
-    p["demand_latest"] = _asof_vintage(p, ndf_n, "start_time", "demand_latest")
-    p["demand_prev"] = _asof_vintage(p, ndf_n, "start_time", "demand_prev", previous=True)
-    p["demand_revision"] = p["demand_latest"] - p["demand_prev"]
-    p["imbal_latest"] = _asof_vintage(p, imb_n, "start_time", "imbal_latest")
+    # Forecasts as they stood at the gate. A late cut to the wind forecast is the mechanism
+    # behind a short system, so the revision (latest minus previous vintage) is the feature
+    # with a physical story. WINDFOR is hourly, so it is matched on the hour.
+    p["wind_latest"], wind_prev = _latest_and_previous(p["start_time"].dt.floor("h"), p["gate"], windfor)
+    p["wind_revision"] = p["wind_latest"] - wind_prev
+    ndf = _national(ndf, "NDF")
+    p["demand_latest"], demand_prev = _latest_and_previous(p["start_time"], p["gate"], ndf)
+    p["demand_revision"] = p["demand_latest"] - demand_prev
+    p["imbal_latest"] = _latest_before(p["start_time"], p["gate"], _national(imbalngc, "IMBALNGC"))["value"]
 
-    # Clock, in UTC. Never settlement_period arithmetic: 25 Oct 2026 has 50 periods.
+    # Clock in UTC. Never settlement-period arithmetic: 25 October 2026 has 50 periods.
     p["hour"] = p["start_time"].dt.hour
     p["weekday"] = p["start_time"].dt.weekday
-    return p.drop(columns=["hour_start"])
+    return p
 
 
 FEATURES = [
@@ -96,22 +99,20 @@ FEATURES = [
 
 def poison(prices: pd.DataFrame, windfor: pd.DataFrame, ndf: pd.DataFrame, imbalngc: pd.DataFrame,
            decided_at: pd.Timestamp, seed: int = 0):
-    """Return copies where everything published after decided_at is replaced by noise.
+    """Copies of the raw data with everything public at or after `decided_at` replaced by noise.
 
-    If build() is honest, features for any period whose gate is before decided_at are
-    unchanged. tests/test_poison.py asserts exactly that.
+    If build() respects the gate, no feature of a period whose gate is before `decided_at`
+    can change. tests/test_poison.py asserts exactly that.
     """
     rng = np.random.default_rng(seed)
 
-    def noise_vint(v):
+    def scramble(v: pd.DataFrame) -> pd.DataFrame:
         v = v.copy()
-        m = v["publish_time"] >= decided_at
-        v.loc[m, "value"] = rng.normal(size=m.sum()) * 1e6
+        late = v["publish_time"] >= decided_at
+        v.loc[late, "value"] = rng.normal(size=late.sum()) * 1e6
         return v
 
     pr = prices.copy()
-    # A price row "exists" 45 min after its start (period end + 15 min indicative print).
-    exists_at = pr["start_time"] + pd.Timedelta(minutes=45)
-    m = exists_at >= decided_at
-    pr.loc[m, ["ssp", "sbp", "niv"]] = rng.normal(size=(m.sum(), 3)) * 1e6
-    return pr, noise_vint(windfor), noise_vint(ndf), noise_vint(imbalngc)
+    late = pr["start_time"] + pd.Timedelta(minutes=45) >= decided_at    # a price exists 45 min after its start
+    pr.loc[late, ["ssp", "sbp", "niv"]] = rng.normal(size=(late.sum(), 3)) * 1e6
+    return pr, scramble(windfor), scramble(ndf), scramble(imbalngc)

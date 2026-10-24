@@ -1,210 +1,229 @@
 """Decision layer: one optimiser, many forecasts.
 
-Every policy is the same dynamic programme; only the expected price for the period being
-decided changes. That isolates what the forecast is worth.
+Every policy is the same dynamic programme over the battery's five SoC levels. Only the
+information fed into it changes, so any difference in money is the forecast's doing.
 
-At gate closure for period t (slot s = half hour of day, UTC):
-  * E[price_t] = p_short * mu_short[s] + (1 - p_short) * mu_long[s]
-    where mu_short / mu_long are trailing-90-day mean prices by slot and state, computed only
-    from periods that settled before the test month began (no lookahead).
-  * The value of what is left in the battery after period t comes from a backward induction
-    over the next 47 half hours on the trailing-90-day unconditional slot profile.
-  * Pick charge / hold / discharge maximising immediate cash + continuation value.
+What the optimiser knows at the gate for period t (slot s = half hour of the UTC day):
+  * Trailing 90-day tables, from periods settled before the test month began: the mean price
+    by slot (`profile`), the mean price by slot when short / when long (`mu_short`,
+    `mu_long`), the share of short periods by slot (`pi`), and the lag-1 autocorrelation of
+    the side (`lam`). Note pi * mu_short + (1 - pi) * mu_long == profile, slot by slot.
+  * A forecast: either P(short) for period t, turned into an expected price
+    p * mu_short + (1 - p) * mu_long, or an expected price directly.
 
-Policies:
-  tilt          p_short unused: E[price_t] = unconditional profile. The no-forecast benchmark.
-  persistence   p from calibrated persistence (P(short_t | short_{t-4})).
-  indicated     p from NESO's indicated imbalance, recalibrated.
-  ours          p from our logistic model.
-  oracle_sign   p = realised short (0/1): perfect knowledge of the side, not the price.
-  oracle_price  E[price_t] = realised price: the ceiling for a one-period decision.
+Two policy families:
+  one-step   the forecast prices period t only; everything after is valued on the profile.
+  chain      the forecast is also carried forward, because the side persists:
+             p_{t+h} = pi[s+h] + (p - pi[s]) * lam^h for the next CHAIN_STEPS periods,
+             after which it has decayed into the profile. With p = pi this is exactly tilt.
 
-Run: python -m gclose.decide   (needs data/out/walkforward.csv and data/out/features.parquet)
+Run: python -m gclose.decide   ->  data/out/daily_pnl.parquet, data/out/results.json
 """
 
 from __future__ import annotations
 
+import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from .battery import CAP_MWH, DAILY_LOSS_LIMIT, EFF, STEP_MWH, WEAR
+from . import GATE_CLOSURE, battery, stats
 
 OUT = Path(__file__).resolve().parent.parent / "data" / "out"
-SOC = np.round(np.arange(0, CAP_MWH + 1e-9, STEP_MWH), 3)          # 0, 0.5, ..., 2.0
-K = len(SOC)
-HORIZON = 47
-LOOKBACK_DAYS = 90
+LOOKBACK = pd.Timedelta(days=90)
+PRICE_PUBLISHED = pd.Timedelta(minutes=45)   # a period's price exists 45 min after its start
+CHAIN_STEPS = 8
 
 
-def _rewards(price: float) -> np.ndarray:
-    """Cash for (discharge, hold, charge) at this price, per half-hour step."""
-    return np.array([STEP_MWH * (EFF * price - WEAR), 0.0, -STEP_MWH * (price + WEAR)])
+def slot_of(times: pd.Series) -> np.ndarray:
+    """Half hour of the UTC day, 0..47."""
+    return (times.dt.hour * 2 + times.dt.minute // 30).to_numpy()
 
 
-def _bellman(v_next: np.ndarray, price: float) -> np.ndarray:
-    r = _rewards(price)
-    v = np.full(K, -np.inf)
-    for k in range(K):
-        v[k] = max(v[k], r[1] + v_next[k])                       # hold
-        if k > 0:
-            v[k] = max(v[k], r[0] + v_next[k - 1])               # discharge
-        if k < K - 1:
-            v[k] = max(v[k], r[2] + v_next[k + 1])               # charge
-    return v
+@dataclass
+class Tables:
+    """Trailing-window tables stacked by test month: arrays are (months, 48[, K])."""
+    profile: np.ndarray
+    mu_short: np.ndarray
+    mu_long: np.ndarray
+    pi: np.ndarray
+    lam: np.ndarray
+    value: np.ndarray        # (months, 48, K) value of each SoC level at the start of each slot
+
+    @classmethod
+    def build(cls, f: pd.DataFrame, months: list[str]) -> "Tables":
+        slots = pd.Index(range(48))
+        parts = {k: [] for k in ("profile", "mu_short", "mu_long", "pi", "lam")}
+        for m in months:
+            start = pd.Timestamp(m + "-01", tz="UTC")
+            # Only periods whose price was public at the month's first gate.
+            hist = f[(f["start_time"] >= start - LOOKBACK) &
+                     (f["start_time"] + PRICE_PUBLISHED < start - GATE_CLOSURE)]
+            by = hist.groupby(slot_of(hist["start_time"]))
+            profile = by["ssp"].mean().reindex(slots).interpolate().bfill().ffill()
+            short = hist["short"] == 1
+            mu_s = hist[short].groupby(slot_of(hist.loc[short, "start_time"]))["ssp"].mean().reindex(slots)
+            mu_l = hist[~short].groupby(slot_of(hist.loc[~short, "start_time"]))["ssp"].mean().reindex(slots)
+            side = hist["short"].to_numpy()
+            parts["profile"].append(profile.to_numpy())
+            parts["mu_short"].append(mu_s.fillna(profile).to_numpy())
+            parts["mu_long"].append(mu_l.fillna(profile).to_numpy())
+            parts["pi"].append(by["short"].mean().reindex(slots).fillna(0.5).to_numpy())
+            parts["lam"].append(np.clip(np.corrcoef(side[1:], side[:-1])[0, 1], 0.0, 0.99))
+        arrays = {k: np.array(v) for k, v in parts.items()}
+        value = np.stack([battery.value_tables(p) for p in arrays["profile"]])
+        return cls(value=value, **arrays)
 
 
-def value_tables(profile: np.ndarray) -> np.ndarray:
-    """V[s] = value of each SoC level at the start of slot s, planning HORIZON steps on the profile."""
-    V = np.zeros((48, K))
-    for s0 in range(48):
-        v = np.zeros(K)
-        for h in reversed(range(HORIZON)):
-            v = _bellman(v, profile[(s0 + h) % 48])
-        V[s0] = v
-    return V
+@dataclass
+class Book:
+    """The test periods in time order, with everything the policies index by."""
+    rows: pd.DataFrame
+    tables: Tables
+    m: np.ndarray            # month index into tables
+    s: np.ndarray            # slot
+    day: np.ndarray          # UTC day number, for the loss limit and daily P&L
+    realised: np.ndarray     # settled price; decides cash, never actions
+
+    @classmethod
+    def build(cls, preds: pd.DataFrame, f: pd.DataFrame) -> "Book":
+        rows = preds.sort_values("start_time").reset_index(drop=True)
+        utc = rows["start_time"].dt.tz_convert("UTC").dt.tz_localize(None)
+        month = utc.dt.to_period("M").astype(str)
+        months = sorted(month.unique())
+        return cls(rows=rows, tables=Tables.build(f, months),
+                   m=month.map({k: i for i, k in enumerate(months)}).to_numpy(),
+                   s=slot_of(rows["start_time"]),
+                   day=(utc.dt.normalize() - pd.Timestamp("1970-01-01")).dt.days.to_numpy(),
+                   realised=rows["ssp"].to_numpy())
+
+    def expected(self, p: np.ndarray, ahead: int = 0) -> np.ndarray:
+        """Expected price `ahead` periods after each row, given P(short) for that period."""
+        s = (self.s + ahead) % 48
+        t = self.tables
+        return p * t.mu_short[self.m, s] + (1 - p) * t.mu_long[self.m, s]
+
+    def one_step(self, price_now: np.ndarray) -> np.ndarray:
+        """Q-values when the forecast informs period t only."""
+        v_next = self.tables.value[self.m, (self.s + 1) % 48]
+        return battery.q_values(v_next, price_now)
+
+    def chain(self, p: np.ndarray) -> np.ndarray:
+        """Q-values when P(short) is also carried CHAIN_STEPS periods forward."""
+        t = self.tables
+        v = t.value[self.m, (self.s + CHAIN_STEPS) % 48]
+        base = t.pi[self.m, self.s]
+        for h in range(CHAIN_STEPS - 1, 0, -1):
+            p_h = t.pi[self.m, (self.s + h) % 48] + (p - base) * t.lam[self.m] ** h
+            v = battery.bellman(v, self.expected(p_h, ahead=h))
+        return battery.q_values(v, self.expected(p))
+
+    def run(self, q: np.ndarray) -> dict[str, np.ndarray]:
+        action, soc, pnl = battery.simulate(q, self.realised, self.day)
+        return {"action": action, "soc": soc, "pnl": pnl}
+
+    def daily(self, pnl: np.ndarray) -> pd.Series:
+        days, idx = np.unique(self.day, return_inverse=True)
+        return pd.Series(np.bincount(idx, weights=pnl), index=pd.to_datetime(days, unit="D"))
 
 
-def slot(ts: pd.Series) -> pd.Series:
-    return ts.dt.hour * 2 + ts.dt.minute // 30
+def _side_forecasts(book: Book) -> dict[str, np.ndarray]:
+    """P(short) per period for every forecast in play, aligned to the book."""
+    r = book.rows
+    sides = {"persistence": r["p_persistence_cal"].to_numpy(), "indicated": r["p_indicated"].to_numpy(),
+             "ours": r["p_ours"].to_numpy(), "oracle": r["short"].to_numpy(dtype=float)}
+    pp = OUT / "price_preds.parquet"
+    if pp.exists():
+        extra = r[["start_time"]].merge(pd.read_parquet(pp), on="start_time", how="left")
+        sides["hgb"] = extra["p_hgb"].fillna(0.5).to_numpy()
+    return sides
 
 
-def month_tables(f: pd.DataFrame, month_start: pd.Timestamp):
-    """Trailing-90-day profiles from periods that settled before month_start."""
-    hist = f[(f["start_time"] < month_start - pd.Timedelta(hours=1)) &
-             (f["start_time"] >= month_start - pd.Timedelta(days=LOOKBACK_DAYS))]
-    s = slot(hist["start_time"])
-    prof = hist.groupby(s)["ssp"].mean().reindex(range(48)).interpolate().bfill().ffill().to_numpy()
-    mu_s = hist[hist["short"] == 1].groupby(s[hist["short"] == 1])["ssp"].mean().reindex(range(48)).fillna(pd.Series(prof)).to_numpy()
-    mu_l = hist[hist["short"] == 0].groupby(s[hist["short"] == 0])["ssp"].mean().reindex(range(48)).fillna(pd.Series(prof)).to_numpy()
-    return prof, mu_s, mu_l, value_tables(prof)
+def run_policies(book: Book, f: pd.DataFrame) -> dict[str, dict[str, np.ndarray]]:
+    """Every policy in the study. Names: <family>_<forecast>."""
+    t, sides = book.tables, _side_forecasts(book)
+    q = {"one_tilt": book.one_step(t.profile[book.m, book.s]),
+         "chain_tilt": book.chain(t.pi[book.m, book.s])}
+    for name, p in sides.items():
+        q[f"one_{name}"] = book.one_step(book.expected(p))
+        q[f"chain_{name}"] = book.chain(p)
+    # Direct price forecasts, tried and reported (they lose money: see results).
+    q["price_oracle"] = book.one_step(book.realised)
+    last_seen = book.rows[["start_time"]].merge(f[["start_time", "ssp_lag4"]], on="start_time", how="left")["ssp_lag4"]
+    q["price_last_seen"] = book.one_step(last_seen.fillna(pd.Series(t.profile[book.m, book.s])).to_numpy())
+    pp = OUT / "price_preds.parquet"
+    if pp.exists():
+        extra = book.rows[["start_time"]].merge(pd.read_parquet(pp), on="start_time", how="left")
+        for c in ("price_ridge", "price_hgb"):
+            q[c] = book.one_step(extra[c].fillna(pd.Series(t.profile[book.m, book.s])).to_numpy())
+    return {name: book.run(qv) for name, qv in q.items()}
 
 
-def run_policy(rows: pd.DataFrame, exp_price: np.ndarray, V_by_month: dict) -> pd.DataFrame:
-    """Simulate one policy over all rows in time order. rows needs start_time, ssp, month, slot_next."""
-    soc_k, day, day_pnl, halted = 0, None, 0.0, False
-    pnl = np.zeros(len(rows))
-    act = np.zeros(len(rows), dtype=int)
-    socs = np.zeros(len(rows))
-    months = rows["month"].to_numpy()
-    nxt = rows["slot_next"].to_numpy()
-    realised = rows["ssp"].to_numpy()
-    days = rows["start_time"].dt.date.to_numpy()
-    for i in range(len(rows)):
-        if days[i] != day:
-            day, day_pnl, halted = days[i], 0.0, False
-        a = 0
-        if not halted:
-            v_next = V_by_month[months[i]][nxt[i]]
-            r = _rewards(exp_price[i])
-            best, a = r[1] + v_next[soc_k], 0
-            if soc_k > 0 and r[0] + v_next[soc_k - 1] > best:
-                best, a = r[0] + v_next[soc_k - 1], 1
-            if soc_k < K - 1 and r[2] + v_next[soc_k + 1] > best:
-                best, a = r[2] + v_next[soc_k + 1], -1
-        cash = _rewards(realised[i])[{1: 0, 0: 1, -1: 2}[a]]
-        soc_k -= a
-        pnl[i], act[i], socs[i] = cash, a, SOC[soc_k]
-        day_pnl += cash
-        if day_pnl < -DAILY_LOSS_LIMIT:
-            halted = True
-    return pd.DataFrame({"start_time": rows["start_time"].to_numpy(), "action": act, "pnl": pnl, "soc": socs})
-
-
-def prepare(preds: pd.DataFrame, f: pd.DataFrame):
-    """Attach month keys, next-slot index and per-month tables; return rows plus E[price] per policy."""
-    rows = preds.sort_values("start_time").reset_index(drop=True).copy()
-    rows["month"] = rows["start_time"].dt.tz_convert("UTC").dt.tz_localize(None).dt.to_period("M").astype(str)
-    rows["slot"] = slot(rows["start_time"])
-    rows["slot_next"] = (rows["slot"] + 1) % 48
-    tables = {}
-    for m in rows["month"].unique():
-        start = pd.Timestamp(m + "-01", tz="UTC")
-        tables[m] = month_tables(f, start)
-    prof = np.array([tables[m][0][s] for m, s in zip(rows["month"], rows["slot"])])
-    mu_s = np.array([tables[m][1][s] for m, s in zip(rows["month"], rows["slot"])])
-    mu_l = np.array([tables[m][2][s] for m, s in zip(rows["month"], rows["slot"])])
-    V = {m: t[3] for m, t in tables.items()}
-    mix = lambda p: p * mu_s + (1 - p) * mu_l
-    expected = {
-        "tilt": prof,
-        "persistence": mix(rows["p_persistence_cal"].to_numpy()),
-        "indicated": mix(rows["p_indicated"].to_numpy()),
-        "ours": mix(rows["p_ours"].to_numpy()),
-        "oracle_sign": mix(rows["short"].to_numpy().astype(float)),
-        "oracle_price": rows["ssp"].to_numpy(),
-    }
-    return rows, expected, V, mix
-
-
-def daily(sim: pd.DataFrame) -> pd.Series:
-    return sim.groupby(sim["start_time"].dt.tz_convert("UTC").dt.date)["pnl"].sum()
-
-
-def bootstrap_weeks(daily_df: pd.DataFrame, stat, n=1000, seed=0):
-    """Resample whole weeks of a daily table (columns = policies); return stat's 5% and 95%."""
-    rng = np.random.default_rng(seed)
-    weeks = pd.to_datetime(daily_df.index).to_period("W").to_numpy()
-    uniq = np.unique(weeks)
-    idx = {w: np.where(weeks == w)[0] for w in uniq}
-    vals = []
-    for _ in range(n):
-        pick = np.concatenate([idx[w] for w in rng.choice(uniq, size=len(uniq), replace=True)])
-        vals.append(stat(daily_df.iloc[pick]))
-    return float(np.quantile(vals, 0.05)), float(np.quantile(vals, 0.95))
-
-
-def main():
-    preds = pd.read_csv(OUT / "walkforward.csv", parse_dates=["start_time"])
-    preds["start_time"] = pd.to_datetime(preds["start_time"], utc=True)
-    f = pd.read_parquet(OUT / "features.parquet")
-    rows, expected, V, mix = prepare(preds, f)
-
-    sims = {name: run_policy(rows, e, V) for name, e in expected.items()}
-    D = pd.DataFrame({name: daily(s) for name, s in sims.items()})
-    D.to_csv(OUT / "daily_pnl.csv")
-
-    table = []
-    for name in D.columns:
-        lo, hi = bootstrap_weeks(D, lambda d, c=name: d[c].mean())
-        trades = (sims[name]["action"] != 0).mean()
-        table.append({"policy": name, "gbp_per_day": round(D[name].mean(), 1), "lo": round(lo, 1), "hi": round(hi, 1),
-                      "active_share": round(trades, 3)})
-    print(pd.DataFrame(table).to_string(index=False))
-
-    share = lambda d: (d["ours"].mean() - d["tilt"].mean()) / (d["oracle_sign"].mean() - d["tilt"].mean())
-    lo, hi = bootstrap_weeks(D, share)
-    print(f"\nours closes {share(D):.1%} of the tilt-to-oracle_sign gap  [90% interval {lo:.1%}, {hi:.1%}]")
-    for b in ("persistence", "indicated"):
-        s = lambda d, b=b: (d[b].mean() - d["tilt"].mean()) / (d["oracle_sign"].mean() - d["tilt"].mean())
-        print(f"{b:11s} closes {s(D):.1%}")
-
-    # Same thing by year, and without the top 1% of days by |pnl| of the oracle, so spikes can't carry it.
-    D.index = pd.to_datetime(D.index)
-    print("\nby year, GBP/day:")
-    print(D.groupby(D.index.year)[["tilt", "persistence", "indicated", "ours", "oracle_sign"]].mean().round(1).to_string())
-    cut = D["oracle_sign"].abs().quantile(0.99)
-    Dt = D[D["oracle_sign"].abs() <= cut]
-    print(f"\nwithout top 1% days: ours closes {share(Dt):.1%}")
-
-    # Value of skill: scale our errors from 0 (oracle) to 1.5x and rerun the same optimiser.
-    y = rows["short"].to_numpy().astype(float)
-    p = rows["p_ours"].to_numpy()
-    curve = []
-    for k in (0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5):
+def skill_curve(book: Book, family: str, ks=(0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5)) -> list[dict]:
+    """Money against forecast error: our errors scaled by k (0 = oracle side, 1 = ours)."""
+    y = book.rows["short"].to_numpy(dtype=float)
+    p = book.rows["p_ours"].to_numpy()
+    out = []
+    for k in ks:
         pk = np.clip(y + k * (p - y), 0, 1)
-        brier = float(np.mean((pk - y) ** 2))
-        sim = run_policy(rows, mix(pk), V)
-        curve.append({"k": k, "brier": round(brier, 4), "gbp_per_day": round(daily(sim).mean(), 1)})
-    for b in ("p_coin", "p_persistence_cal", "p_indicated"):
-        pb = rows[b].to_numpy()
-        curve.append({"k": b, "brier": round(float(np.mean((pb - y) ** 2)), 4),
-                      "gbp_per_day": round(D[{"p_coin": "tilt", "p_persistence_cal": "persistence", "p_indicated": "indicated"}[b]].mean(), 1)})
-    C = pd.DataFrame(curve)
-    C.to_csv(OUT / "skill_curve.csv", index=False)
-    print("\nvalue of skill (k = multiple of our errors; 0 = oracle sign, 1 = ours):")
-    print(C.to_string(index=False))
+        q = book.one_step(book.expected(pk)) if family == "one" else book.chain(pk)
+        out.append({"k": k, "brier": round(float(np.mean((pk - y) ** 2)), 4),
+                    "gbp_per_day": round(float(book.daily(book.run(q)["pnl"]).mean()), 1)})
+    return out
+
+
+def summarise(book: Book, sims: dict, daily: pd.DataFrame) -> dict:
+    """Money table with intervals, gap shares per family, by year, and spike sensitivity."""
+    weeks = stats.week_index(daily.index)
+    boot = pd.DataFrame(stats.resampled_means(daily.to_numpy(), weeks), columns=daily.columns)
+    money = []
+    for c in daily.columns:
+        lo, hi = stats.interval(boot[c])
+        money.append({"policy": c, "gbp_per_day": round(daily[c].mean(), 1), "lo": round(lo, 1), "hi": round(hi, 1),
+                      "active_share": round(float((sims[c]["action"] != 0).mean()), 3)})
+
+    def gap_share(means, family, who):
+        return (means[f"{family}_{who}"] - means[f"{family}_tilt"]) / (means[f"{family}_oracle"] - means[f"{family}_tilt"])
+
+    shares = {}
+    calm = daily[daily["one_oracle"].abs() <= daily["one_oracle"].abs().quantile(0.99)]
+    for family in ("one", "chain"):
+        for who in ("persistence", "indicated", "ours", "hgb"):
+            if f"{family}_{who}" not in daily:
+                continue
+            lo, hi = stats.interval(gap_share(boot, family, who))
+            shares[f"{family}_{who}"] = {"share": round(float(gap_share(daily.mean(), family, who)), 4),
+                                         "lo": round(lo, 4), "hi": round(hi, 4),
+                                         "without_top_1pct_days": round(float(gap_share(calm.mean(), family, who)), 4)}
+    by_year = daily.groupby(daily.index.year).mean().round(1)
+    return {"money": money, "gap_share": shares,
+            "by_year": by_year.reset_index(names="year").to_dict(orient="records"),
+            "skill_curve": {"one": skill_curve(book, "one"), "chain": skill_curve(book, "chain")}}
+
+
+def run():
+    """The whole decision study from the walk-forward forecasts: (book, sims, daily, results)."""
+    preds = pd.read_parquet(OUT / "walkforward.parquet")
+    f = pd.read_parquet(OUT / "features.parquet")
+    book = Book.build(preds, f)
+    sims = run_policies(book, f)
+    daily = pd.DataFrame({name: book.daily(sim["pnl"]) for name, sim in sims.items()})
+    return book, sims, daily, summarise(book, sims, daily)
+
+
+def main() -> None:
+    book, sims, daily, results = run()
+    daily.to_parquet(OUT / "daily_pnl.parquet")
+    (OUT / "results.json").write_text(json.dumps(results, indent=1))
+
+    print(pd.DataFrame(results["money"]).to_string(index=False))
+    print("\nshare of the gap between no forecast (tilt) and knowing the side (oracle):")
+    for name, s in results["gap_share"].items():
+        print(f"  {name:18s} {s['share']:7.1%}   [{s['lo']:6.1%}, {s['hi']:6.1%}]   without top 1% days {s['without_top_1pct_days']:6.1%}")
+    for family, curve in results["skill_curve"].items():
+        print(f"\nvalue of skill ({family}-step):", "  ".join(f"B{c['brier']:.3f}:£{c['gbp_per_day']:.0f}" for c in curve))
 
 
 if __name__ == "__main__":

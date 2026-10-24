@@ -1,11 +1,16 @@
 {
  "meta": {
-  "generated_at": "2026-10-24T14:43Z",
+  "generated_at": "2026-10-24T14:59Z",
   "test_period": "2022-07 to 2026-06 (walk-forward, monthly retrain)",
   "replay_week": "2026-06-22/2026-06-28",
   "replay_rule": "The 2026 test week with the largest range of system prices, chosen without looking at our P&L.",
   "battery": "1 MW / 2 MWh, 85% round trip, GBP 5/MWh wear, daily loss limit GBP 500",
-  "decision_time": "One hour before each half hour (gate closure); newest known price is four periods old."
+  "decision_time": "One hour before each half hour (gate closure); newest known price is four periods old.",
+  "tape_policies": {
+   "ours": "chain_ours",
+   "tilt": "chain_tilt",
+   "oracle": "chain_oracle"
+  }
  },
  "tape": [
   {
@@ -728,9 +733,9 @@
     "pnl": -57.0
    },
    "oracle": {
-    "action": 1,
-    "soc": 1.5,
-    "pnl": 43.82
+    "action": 0,
+    "soc": 2.0,
+    "pnl": 0.0
    }
   },
   {
@@ -753,9 +758,9 @@
     "pnl": -43.02
    },
    "oracle": {
-    "action": -1,
+    "action": 0,
     "soc": 2.0,
-    "pnl": -43.02
+    "pnl": 0.0
    }
   },
   {
@@ -1003,9 +1008,9 @@
     "pnl": 46.25
    },
    "oracle": {
-    "action": -1,
-    "soc": 0.5,
-    "pnl": -59.85
+    "action": 0,
+    "soc": 0.0,
+    "pnl": 0.0
    }
   },
   {
@@ -1029,7 +1034,7 @@
    },
    "oracle": {
     "action": 0,
-    "soc": 0.5,
+    "soc": 0.0,
     "pnl": 0.0
    }
   },
@@ -1053,9 +1058,9 @@
     "pnl": 0.0
    },
    "oracle": {
-    "action": 1,
+    "action": 0,
     "soc": 0.0,
-    "pnl": 71.45
+    "pnl": 0.0
    }
   },
   {
@@ -1205,7 +1210,7 @@
    "oracle": {
     "action": -1,
     "soc": 1.5,
-    "pnl": -43.33
+    "pnl": -43.32
    }
   },
   {
@@ -1230,7 +1235,7 @@
    "oracle": {
     "action": -1,
     "soc": 2.0,
-    "pnl": -43.33
+    "pnl": -43.32
    }
   },
   {
@@ -1318,9 +1323,9 @@
    "wind_revision_mw": 76.0,
    "demand_revision_mw": 0.0,
    "ours": {
-    "action": -1,
-    "soc": 0.5,
-    "pnl": -65.0
+    "action": 0,
+    "soc": 0.0,
+    "pnl": 0.0
    },
    "tilt": {
     "action": 0,
@@ -1343,9 +1348,9 @@
    "wind_revision_mw": 76.0,
    "demand_revision_mw": 0.0,
    "ours": {
-    "action": 0,
+    "action": -1,
     "soc": 0.5,
-    "pnl": 0.0
+    "pnl": -53.44
    },
    "tilt": {
     "action": -1,
@@ -1630,7 +1635,7 @@
    "oracle": {
     "action": -1,
     "soc": 1.5,
-    "pnl": -43.33
+    "pnl": -43.32
    }
   },
   {
@@ -1795,7 +1800,7 @@
    "ours": {
     "action": -1,
     "soc": 1.5,
-    "pnl": -43.01
+    "pnl": -43.0
    },
    "tilt": {
     "action": 0,
@@ -2380,7 +2385,7 @@
    "oracle": {
     "action": -1,
     "soc": 0.5,
-    "pnl": -50.45
+    "pnl": -50.46
    }
   },
   {
@@ -2395,7 +2400,7 @@
    "ours": {
     "action": -1,
     "soc": 0.5,
-    "pnl": -79.91
+    "pnl": -79.9
    },
    "tilt": {
     "action": 0,
@@ -2505,7 +2510,7 @@
    "oracle": {
     "action": -1,
     "soc": 2.0,
-    "pnl": -45.95
+    "pnl": -45.94
    }
   },
   {
@@ -2518,9 +2523,9 @@
    "wind_revision_mw": -26.0,
    "demand_revision_mw": 0.0,
    "ours": {
-    "action": -1,
-    "soc": 1.0,
-    "pnl": -80.04
+    "action": 0,
+    "soc": 0.5,
+    "pnl": 0.0
    },
    "tilt": {
     "action": 0,
@@ -2543,9 +2548,9 @@
    "wind_revision_mw": -26.0,
    "demand_revision_mw": 0.0,
    "ours": {
-    "action": 0,
+    "action": -1,
     "soc": 1.0,
-    "pnl": 0.0
+    "pnl": -61.25
    },
    "tilt": {
     "action": -1,
@@ -3125,12 +3130,12 @@
    "tilt": {
     "action": -1,
     "soc": 1.5,
-    "pnl": -53.23
+    "pnl": -53.22
    },
    "oracle": {
-    "action": 1,
-    "soc": 1.5,
-    "pnl": 40.62
+    "action": 0,
+    "soc": 2.0,
+    "pnl": 0.0
    }
   },
   {
@@ -3153,9 +3158,9 @@
     "pnl": -44.9
    },
    "oracle": {
-    "action": -1,
+    "action": 0,
     "soc": 2.0,
-    "pnl": -44.9
+    "pnl": 0.0
    }
   },
   {
@@ -3805,7 +3810,7 @@
    "oracle": {
     "action": -1,
     "soc": 2.0,
-    "pnl": -50.05
+    "pnl": -50.04
    }
   },
   {
@@ -3928,9 +3933,9 @@
     "pnl": 0.0
    },
    "oracle": {
-    "action": -1,
-    "soc": 1.5,
-    "pnl": -43.3
+    "action": 0,
+    "soc": 1.0,
+    "pnl": 0.0
    }
   },
   {
@@ -3954,7 +3959,7 @@
    },
    "oracle": {
     "action": 0,
-    "soc": 1.5,
+    "soc": 1.0,
     "pnl": 0.0
    }
   },
@@ -3979,7 +3984,7 @@
    },
    "oracle": {
     "action": 0,
-    "soc": 1.5,
+    "soc": 1.0,
     "pnl": 0.0
    }
   },
@@ -4004,7 +4009,7 @@
    },
    "oracle": {
     "action": 1,
-    "soc": 1.0,
+    "soc": 0.5,
     "pnl": 50.41
    }
   },
@@ -4029,7 +4034,7 @@
    },
    "oracle": {
     "action": -1,
-    "soc": 1.5,
+    "soc": 1.0,
     "pnl": -43.3
    }
   },
@@ -4054,7 +4059,7 @@
    },
    "oracle": {
     "action": -1,
-    "soc": 2.0,
+    "soc": 1.5,
     "pnl": -43.3
    }
   },
@@ -4079,7 +4084,7 @@
    },
    "oracle": {
     "action": 1,
-    "soc": 1.5,
+    "soc": 1.0,
     "pnl": 44.2
    }
   },
@@ -4104,7 +4109,7 @@
    },
    "oracle": {
     "action": 1,
-    "soc": 1.0,
+    "soc": 0.5,
     "pnl": 45.23
    }
   },
@@ -4129,7 +4134,7 @@
    },
    "oracle": {
     "action": 1,
-    "soc": 0.5,
+    "soc": 0.0,
     "pnl": 45.1
    }
   },
@@ -4153,9 +4158,9 @@
     "pnl": 0.0
    },
    "oracle": {
-    "action": 1,
+    "action": 0,
     "soc": 0.0,
-    "pnl": 46.55
+    "pnl": 0.0
    }
   },
   {
@@ -4343,9 +4348,9 @@
    "wind_revision_mw": -231.0,
    "demand_revision_mw": 0.0,
    "ours": {
-    "action": 0,
-    "soc": 1.5,
-    "pnl": 0.0
+    "action": -1,
+    "soc": 2.0,
+    "pnl": -42.05
    },
    "tilt": {
     "action": -1,
@@ -4369,7 +4374,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": 0,
-    "soc": 1.5,
+    "soc": 2.0,
     "pnl": 0.0
    },
    "tilt": {
@@ -4393,9 +4398,9 @@
    "wind_revision_mw": 23.0,
    "demand_revision_mw": 0.0,
    "ours": {
-    "action": -1,
+    "action": 0,
     "soc": 2.0,
-    "pnl": -54.1
+    "pnl": 0.0
    },
    "tilt": {
     "action": 0,
@@ -4555,7 +4560,7 @@
    "oracle": {
     "action": -1,
     "soc": 2.0,
-    "pnl": -49.23
+    "pnl": -49.22
    }
   },
   {
@@ -4928,9 +4933,9 @@
     "pnl": 0.0
    },
    "oracle": {
-    "action": 1,
-    "soc": 0.0,
-    "pnl": 51.9
+    "action": 0,
+    "soc": 0.5,
+    "pnl": 0.0
    }
   },
   {
@@ -4953,9 +4958,9 @@
     "pnl": -72.4
    },
    "oracle": {
-    "action": 0,
+    "action": 1,
     "soc": 0.0,
-    "pnl": 0.0
+    "pnl": 56.92
    }
   },
   {
@@ -5030,7 +5035,7 @@
    "oracle": {
     "action": -1,
     "soc": 0.5,
-    "pnl": -44.51
+    "pnl": -44.5
    }
   },
   {
@@ -5055,7 +5060,7 @@
    "oracle": {
     "action": -1,
     "soc": 1.0,
-    "pnl": -43.33
+    "pnl": -43.32
    }
   },
   {
@@ -5170,7 +5175,7 @@
    "ours": {
     "action": 1,
     "soc": 1.0,
-    "pnl": 30.23
+    "pnl": 30.22
    },
    "tilt": {
     "action": 0,
@@ -5393,9 +5398,9 @@
    "wind_revision_mw": 704.0,
    "demand_revision_mw": 0.0,
    "ours": {
-    "action": -1,
-    "soc": 1.0,
-    "pnl": -59.5
+    "action": 0,
+    "soc": 0.5,
+    "pnl": 0.0
    },
    "tilt": {
     "action": 0,
@@ -5419,7 +5424,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": 0,
-    "soc": 1.0,
+    "soc": 0.5,
     "pnl": 0.0
    },
    "tilt": {
@@ -5444,7 +5449,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": 0,
-    "soc": 1.0,
+    "soc": 0.5,
     "pnl": 0.0
    },
    "tilt": {
@@ -5469,7 +5474,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": 0,
-    "soc": 1.0,
+    "soc": 0.5,
     "pnl": 0.0
    },
    "tilt": {
@@ -5494,7 +5499,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": 0,
-    "soc": 1.0,
+    "soc": 0.5,
     "pnl": 0.0
    },
    "tilt": {
@@ -5518,9 +5523,9 @@
    "wind_revision_mw": -693.0,
    "demand_revision_mw": 0.0,
    "ours": {
-    "action": 0,
+    "action": -1,
     "soc": 1.0,
-    "pnl": 0.0
+    "pnl": -85.0
    },
    "tilt": {
     "action": -1,
@@ -5543,9 +5548,9 @@
    "wind_revision_mw": -693.0,
    "demand_revision_mw": 0.0,
    "ours": {
-    "action": 0,
-    "soc": 1.0,
-    "pnl": 0.0
+    "action": -1,
+    "soc": 1.5,
+    "pnl": -85.0
    },
    "tilt": {
     "action": -1,
@@ -5569,7 +5574,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": 0,
-    "soc": 1.0,
+    "soc": 1.5,
     "pnl": 0.0
    },
    "tilt": {
@@ -5578,9 +5583,9 @@
     "pnl": 0.0
    },
    "oracle": {
-    "action": 1,
-    "soc": 0.0,
-    "pnl": 67.62
+    "action": 0,
+    "soc": 0.5,
+    "pnl": 0.0
    }
   },
   {
@@ -5594,7 +5599,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": -1,
-    "soc": 1.5,
+    "soc": 2.0,
     "pnl": -85.0
    },
    "tilt": {
@@ -5604,7 +5609,7 @@
    },
    "oracle": {
     "action": 0,
-    "soc": 0.0,
+    "soc": 0.5,
     "pnl": 0.0
    }
   },
@@ -5619,7 +5624,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": 0,
-    "soc": 1.5,
+    "soc": 2.0,
     "pnl": 0.0
    },
    "tilt": {
@@ -5629,7 +5634,7 @@
    },
    "oracle": {
     "action": 0,
-    "soc": 0.0,
+    "soc": 0.5,
     "pnl": 0.0
    }
   },
@@ -5644,7 +5649,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": 0,
-    "soc": 1.5,
+    "soc": 2.0,
     "pnl": 0.0
    },
    "tilt": {
@@ -5653,9 +5658,9 @@
     "pnl": 0.0
    },
    "oracle": {
-    "action": 0,
+    "action": 1,
     "soc": 0.0,
-    "pnl": 0.0
+    "pnl": 50.8
    }
   },
   {
@@ -5669,7 +5674,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": 0,
-    "soc": 1.5,
+    "soc": 2.0,
     "pnl": 0.0
    },
    "tilt": {
@@ -5694,7 +5699,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": 0,
-    "soc": 1.5,
+    "soc": 2.0,
     "pnl": 0.0
    },
    "tilt": {
@@ -5718,9 +5723,9 @@
    "wind_revision_mw": -736.0,
    "demand_revision_mw": 0.0,
    "ours": {
-    "action": 0,
+    "action": 1,
     "soc": 1.5,
-    "pnl": 0.0
+    "pnl": 76.27
    },
    "tilt": {
     "action": 1,
@@ -5828,9 +5833,9 @@
     "pnl": 0.0
    },
    "oracle": {
-    "action": -1,
-    "soc": 0.5,
-    "pnl": -46.45
+    "action": 0,
+    "soc": 0.0,
+    "pnl": 0.0
    }
   },
   {
@@ -5854,7 +5859,7 @@
    },
    "oracle": {
     "action": 0,
-    "soc": 0.5,
+    "soc": 0.0,
     "pnl": 0.0
    }
   },
@@ -5879,7 +5884,7 @@
    },
    "oracle": {
     "action": 0,
-    "soc": 0.5,
+    "soc": 0.0,
     "pnl": 0.0
    }
   },
@@ -5904,7 +5909,7 @@
    },
    "oracle": {
     "action": -1,
-    "soc": 1.0,
+    "soc": 0.5,
     "pnl": -41.84
    }
   },
@@ -5929,7 +5934,7 @@
    },
    "oracle": {
     "action": -1,
-    "soc": 1.5,
+    "soc": 1.0,
     "pnl": -40.5
    }
   },
@@ -5954,7 +5959,7 @@
    },
    "oracle": {
     "action": 1,
-    "soc": 1.0,
+    "soc": 0.5,
     "pnl": 49.41
    }
   },
@@ -5979,7 +5984,7 @@
    },
    "oracle": {
     "action": -1,
-    "soc": 1.5,
+    "soc": 1.0,
     "pnl": -44.99
    }
   },
@@ -6004,8 +6009,8 @@
    },
    "oracle": {
     "action": -1,
-    "soc": 2.0,
-    "pnl": -41.67
+    "soc": 1.5,
+    "pnl": -41.68
    }
   },
   {
@@ -6028,9 +6033,9 @@
     "pnl": 0.0
    },
    "oracle": {
-    "action": 0,
+    "action": -1,
     "soc": 2.0,
-    "pnl": 0.0
+    "pnl": -53.75
    }
   },
   {
@@ -6118,9 +6123,9 @@
    "wind_revision_mw": 328.0,
    "demand_revision_mw": 0.0,
    "ours": {
-    "action": -1,
-    "soc": 0.5,
-    "pnl": -40.73
+    "action": 0,
+    "soc": 0.0,
+    "pnl": 0.0
    },
    "tilt": {
     "action": 0,
@@ -6144,7 +6149,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": -1,
-    "soc": 1.0,
+    "soc": 0.5,
     "pnl": -37.91
    },
    "tilt": {
@@ -6168,9 +6173,9 @@
    "wind_revision_mw": 457.0,
    "demand_revision_mw": 0.0,
    "ours": {
-    "action": 0,
+    "action": -1,
     "soc": 1.0,
-    "pnl": 0.0
+    "pnl": -51.38
    },
    "tilt": {
     "action": 0,
@@ -6330,7 +6335,7 @@
    "oracle": {
     "action": 1,
     "soc": 0.0,
-    "pnl": 48.07
+    "pnl": 48.08
    }
   },
   {
@@ -6343,14 +6348,14 @@
    "wind_revision_mw": -39.0,
    "demand_revision_mw": 0.0,
    "ours": {
-    "action": 0,
-    "soc": 1.0,
-    "pnl": 0.0
+    "action": 1,
+    "soc": 0.5,
+    "pnl": 48.08
    },
    "tilt": {
     "action": 1,
     "soc": 0.0,
-    "pnl": 48.07
+    "pnl": 48.08
    },
    "oracle": {
     "action": 0,
@@ -6369,7 +6374,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": 1,
-    "soc": 0.5,
+    "soc": 0.0,
     "pnl": 7.78
    },
    "tilt": {
@@ -6378,9 +6383,9 @@
     "pnl": 0.0
    },
    "oracle": {
-    "action": -1,
-    "soc": 0.5,
-    "pnl": -14.59
+    "action": 0,
+    "soc": 0.0,
+    "pnl": 0.0
    }
   },
   {
@@ -6393,9 +6398,9 @@
    "wind_revision_mw": 259.0,
    "demand_revision_mw": 0.0,
    "ours": {
-    "action": 1,
+    "action": 0,
     "soc": 0.0,
-    "pnl": -1.8
+    "pnl": 0.0
    },
    "tilt": {
     "action": 0,
@@ -6404,7 +6409,7 @@
    },
    "oracle": {
     "action": 0,
-    "soc": 0.5,
+    "soc": 0.0,
     "pnl": 0.0
    }
   },
@@ -6428,9 +6433,9 @@
     "pnl": 0.0
    },
    "oracle": {
-    "action": 1,
+    "action": 0,
     "soc": 0.0,
-    "pnl": 48.07
+    "pnl": 0.0
    }
   },
   {
@@ -6753,9 +6758,9 @@
     "pnl": -60.35
    },
    "oracle": {
-    "action": 1,
-    "soc": 1.5,
-    "pnl": 46.67
+    "action": 0,
+    "soc": 2.0,
+    "pnl": 0.0
    }
   },
   {
@@ -6779,7 +6784,7 @@
    },
    "oracle": {
     "action": 1,
-    "soc": 1.0,
+    "soc": 1.5,
     "pnl": 47.65
    }
   },
@@ -6804,7 +6809,7 @@
    },
    "oracle": {
     "action": 0,
-    "soc": 1.0,
+    "soc": 1.5,
     "pnl": 0.0
    }
   },
@@ -6829,7 +6834,7 @@
    },
    "oracle": {
     "action": 1,
-    "soc": 0.5,
+    "soc": 1.0,
     "pnl": 48.72
    }
   },
@@ -6854,7 +6859,7 @@
    },
    "oracle": {
     "action": 1,
-    "soc": 0.0,
+    "soc": 0.5,
     "pnl": 47.8
    }
   },
@@ -6879,8 +6884,8 @@
    },
    "oracle": {
     "action": -1,
-    "soc": 0.5,
-    "pnl": -43.01
+    "soc": 1.0,
+    "pnl": -43.0
    }
   },
   {
@@ -6904,7 +6909,7 @@
    },
    "oracle": {
     "action": 1,
-    "soc": 0.0,
+    "soc": 0.5,
     "pnl": 56.15
    }
   },
@@ -6929,8 +6934,8 @@
    },
    "oracle": {
     "action": -1,
-    "soc": 0.5,
-    "pnl": -56.17
+    "soc": 1.0,
+    "pnl": -56.18
    }
   },
   {
@@ -6954,7 +6959,7 @@
    },
    "oracle": {
     "action": 1,
-    "soc": 0.0,
+    "soc": 0.5,
     "pnl": 52.32
    }
   },
@@ -6978,9 +6983,9 @@
     "pnl": 57.0
    },
    "oracle": {
-    "action": 0,
+    "action": 1,
     "soc": 0.0,
-    "pnl": 0.0
+    "pnl": 57.0
    }
   },
   {
@@ -7043,9 +7048,9 @@
    "wind_revision_mw": -164.0,
    "demand_revision_mw": 0.0,
    "ours": {
-    "action": 0,
-    "soc": 1.0,
-    "pnl": 0.0
+    "action": 1,
+    "soc": 0.5,
+    "pnl": 35.75
    },
    "tilt": {
     "action": 0,
@@ -7069,7 +7074,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": 0,
-    "soc": 1.0,
+    "soc": 0.5,
     "pnl": 0.0
    },
    "tilt": {
@@ -7094,7 +7099,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": 0,
-    "soc": 1.0,
+    "soc": 0.5,
     "pnl": 0.0
    },
    "tilt": {
@@ -7119,7 +7124,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": 0,
-    "soc": 1.0,
+    "soc": 0.5,
     "pnl": 0.0
    },
    "tilt": {
@@ -7144,7 +7149,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": 0,
-    "soc": 1.0,
+    "soc": 0.5,
     "pnl": 0.0
    },
    "tilt": {
@@ -7169,7 +7174,7 @@
    "demand_revision_mw": 0.0,
    "ours": {
     "action": 0,
-    "soc": 1.0,
+    "soc": 0.5,
     "pnl": 0.0
    },
    "tilt": {
@@ -7193,9 +7198,9 @@
    "wind_revision_mw": 201.0,
    "demand_revision_mw": -308.0,
    "ours": {
-    "action": 0,
+    "action": -1,
     "soc": 1.0,
-    "pnl": 0.0
+    "pnl": -41.35
    },
    "tilt": {
     "action": 0,
@@ -7578,9 +7583,9 @@
     "pnl": 0.0
    },
    "oracle": {
-    "action": -1,
-    "soc": 0.5,
-    "pnl": -17.02
+    "action": 0,
+    "soc": 0.0,
+    "pnl": 0.0
    }
   },
   {
@@ -7604,7 +7609,7 @@
    },
    "oracle": {
     "action": 0,
-    "soc": 0.5,
+    "soc": 0.0,
     "pnl": 0.0
    }
   },
@@ -7629,8 +7634,8 @@
    },
    "oracle": {
     "action": -1,
-    "soc": 1.0,
-    "pnl": -1.35
+    "soc": 0.5,
+    "pnl": -1.36
    }
   },
   {
@@ -7654,7 +7659,7 @@
    },
    "oracle": {
     "action": -1,
-    "soc": 1.5,
+    "soc": 1.0,
     "pnl": 2.5
    }
   },
@@ -7679,7 +7684,7 @@
    },
    "oracle": {
     "action": -1,
-    "soc": 2.0,
+    "soc": 1.5,
     "pnl": 5.08
    }
   },
@@ -7703,9 +7708,9 @@
     "pnl": 0.0
    },
    "oracle": {
-    "action": 0,
+    "action": -1,
     "soc": 2.0,
-    "pnl": 0.0
+    "pnl": 10.06
    }
   },
   {
@@ -8441,101 +8446,6 @@
    "hi": 0.2309
   }
  ],
- "money": [
-  {
-   "policy": "tilt",
-   "gbp_per_day": 43.8,
-   "lo": 35.7,
-   "hi": 52.7
-  },
-  {
-   "policy": "persistence",
-   "gbp_per_day": 36.3,
-   "lo": 28.7,
-   "hi": 44.8
-  },
-  {
-   "policy": "indicated",
-   "gbp_per_day": 27.3,
-   "lo": 20.0,
-   "hi": 35.4
-  },
-  {
-   "policy": "ours",
-   "gbp_per_day": 46.0,
-   "lo": 38.0,
-   "hi": 53.6
-  },
-  {
-   "policy": "oracle_sign",
-   "gbp_per_day": 224.1,
-   "lo": 204.9,
-   "hi": 246.8
-  },
-  {
-   "policy": "oracle_price",
-   "gbp_per_day": 166.1,
-   "lo": 151.7,
-   "hi": 180.9
-  }
- ],
- "share_of_gap": {
-  "ours": 0.0118,
-  "lo": -0.0128,
-  "hi": 0.0366
- },
- "skill_curve": [
-  {
-   "k": "0.0",
-   "brier": 0.0,
-   "gbp_per_day": 224.1
-  },
-  {
-   "k": "0.25",
-   "brier": 0.0143,
-   "gbp_per_day": 219.7
-  },
-  {
-   "k": "0.5",
-   "brier": 0.0573,
-   "gbp_per_day": 192.6
-  },
-  {
-   "k": "0.75",
-   "brier": 0.1289,
-   "gbp_per_day": 130.7
-  },
-  {
-   "k": "1.0",
-   "brier": 0.2291,
-   "gbp_per_day": 46.0
-  },
-  {
-   "k": "1.25",
-   "brier": 0.3571,
-   "gbp_per_day": -74.0
-  },
-  {
-   "k": "1.5",
-   "brier": 0.4998,
-   "gbp_per_day": -196.8
-  },
-  {
-   "k": "p_coin",
-   "brier": 0.25,
-   "gbp_per_day": 43.8
-  },
-  {
-   "k": "p_persistence_cal",
-   "brier": 0.2407,
-   "gbp_per_day": 36.3
-  },
-  {
-   "k": "p_indicated",
-   "brier": 0.2468,
-   "gbp_per_day": 27.3
-  }
- ],
  "poison": {
   "cutoff": "2026-06-25T12:00Z",
   "decisions_checked": 170,
@@ -8543,46 +8453,341 @@
   "forecasts_changed": 0,
   "rows_after_cutoff_poisoned": 306
  },
+ "money": [
+  {
+   "policy": "one_tilt",
+   "gbp_per_day": 43.8,
+   "lo": 35.5,
+   "hi": 52.9,
+   "active_share": 0.214
+  },
+  {
+   "policy": "chain_tilt",
+   "gbp_per_day": 43.8,
+   "lo": 35.5,
+   "hi": 52.9,
+   "active_share": 0.214
+  },
+  {
+   "policy": "one_persistence",
+   "gbp_per_day": 36.4,
+   "lo": 28.7,
+   "hi": 45.0,
+   "active_share": 0.169
+  },
+  {
+   "policy": "chain_persistence",
+   "gbp_per_day": 41.4,
+   "lo": 33.3,
+   "hi": 50.6,
+   "active_share": 0.169
+  },
+  {
+   "policy": "one_indicated",
+   "gbp_per_day": 27.3,
+   "lo": 20.0,
+   "hi": 35.7,
+   "active_share": 0.135
+  },
+  {
+   "policy": "chain_indicated",
+   "gbp_per_day": 32.1,
+   "lo": 24.2,
+   "hi": 40.8,
+   "active_share": 0.144
+  },
+  {
+   "policy": "one_ours",
+   "gbp_per_day": 46.0,
+   "lo": 37.9,
+   "hi": 54.0,
+   "active_share": 0.18
+  },
+  {
+   "policy": "chain_ours",
+   "gbp_per_day": 48.4,
+   "lo": 40.4,
+   "hi": 56.8,
+   "active_share": 0.182
+  },
+  {
+   "policy": "one_oracle",
+   "gbp_per_day": 224.1,
+   "lo": 203.9,
+   "hi": 245.6,
+   "active_share": 0.474
+  },
+  {
+   "policy": "chain_oracle",
+   "gbp_per_day": 223.1,
+   "lo": 203.1,
+   "hi": 244.6,
+   "active_share": 0.459
+  },
+  {
+   "policy": "one_hgb",
+   "gbp_per_day": 46.3,
+   "lo": 38.0,
+   "hi": 54.7,
+   "active_share": 0.202
+  },
+  {
+   "policy": "chain_hgb",
+   "gbp_per_day": 49.0,
+   "lo": 41.1,
+   "hi": 57.2,
+   "active_share": 0.203
+  },
+  {
+   "policy": "price_oracle",
+   "gbp_per_day": 166.1,
+   "lo": 151.7,
+   "hi": 180.9,
+   "active_share": 0.269
+  },
+  {
+   "policy": "price_last_seen",
+   "gbp_per_day": -9.8,
+   "lo": -15.7,
+   "hi": -4.3,
+   "active_share": 0.269
+  },
+  {
+   "policy": "price_ridge",
+   "gbp_per_day": 19.8,
+   "lo": 15.8,
+   "hi": 24.1,
+   "active_share": 0.115
+  },
+  {
+   "policy": "price_hgb",
+   "gbp_per_day": 20.5,
+   "lo": 16.4,
+   "hi": 24.9,
+   "active_share": 0.089
+  }
+ ],
+ "gap_share": {
+  "one_persistence": {
+   "share": -0.0415,
+   "lo": -0.0623,
+   "hi": -0.0207,
+   "without_top_1pct_days": -0.05
+  },
+  "one_indicated": {
+   "share": -0.0919,
+   "lo": -0.1193,
+   "hi": -0.0663,
+   "without_top_1pct_days": -0.101
+  },
+  "one_ours": {
+   "share": 0.0119,
+   "lo": -0.0121,
+   "hi": 0.0373,
+   "without_top_1pct_days": -0.0007
+  },
+  "one_hgb": {
+   "share": 0.0135,
+   "lo": -0.0098,
+   "hi": 0.0349,
+   "without_top_1pct_days": -0.0008
+  },
+  "chain_persistence": {
+   "share": -0.0137,
+   "lo": -0.0382,
+   "hi": 0.0106,
+   "without_top_1pct_days": -0.0247
+  },
+  "chain_indicated": {
+   "share": -0.0655,
+   "lo": -0.0895,
+   "hi": -0.0433,
+   "without_top_1pct_days": -0.0717
+  },
+  "chain_ours": {
+   "share": 0.0256,
+   "lo": 0.0017,
+   "hi": 0.0487,
+   "without_top_1pct_days": 0.0122
+  },
+  "chain_hgb": {
+   "share": 0.0289,
+   "lo": 0.0066,
+   "hi": 0.0507,
+   "without_top_1pct_days": 0.0156
+  }
+ },
  "by_year": [
   {
    "year": 2022,
-   "tilt": 71.8,
-   "persistence": 63.1,
-   "indicated": 43.3,
-   "ours": 76.2,
-   "oracle_sign": 575.0
+   "one_tilt": 71.8,
+   "chain_tilt": 71.8,
+   "one_persistence": 63.4,
+   "chain_persistence": 73.2,
+   "one_indicated": 43.3,
+   "chain_indicated": 51.7,
+   "one_ours": 76.6,
+   "chain_ours": 85.1,
+   "one_oracle": 575.0,
+   "chain_oracle": 573.6,
+   "one_hgb": 60.0,
+   "chain_hgb": 73.8,
+   "price_oracle": 266.3,
+   "price_last_seen": -25.4,
+   "price_ridge": 20.2,
+   "price_hgb": 0.5
   },
   {
    "year": 2023,
-   "tilt": 45.9,
-   "persistence": 30.1,
-   "indicated": 26.7,
-   "ours": 48.7,
-   "oracle_sign": 295.6
+   "one_tilt": 45.9,
+   "chain_tilt": 45.9,
+   "one_persistence": 30.1,
+   "chain_persistence": 39.0,
+   "one_indicated": 26.7,
+   "chain_indicated": 28.9,
+   "one_ours": 48.7,
+   "chain_ours": 51.3,
+   "one_oracle": 295.6,
+   "chain_oracle": 294.8,
+   "one_hgb": 52.4,
+   "chain_hgb": 55.1,
+   "price_oracle": 235.6,
+   "price_last_seen": -15.1,
+   "price_ridge": 25.4,
+   "price_hgb": 29.3
   },
   {
    "year": 2024,
-   "tilt": 30.5,
-   "persistence": 24.9,
-   "indicated": 13.5,
-   "ours": 28.0,
-   "oracle_sign": 135.8
+   "one_tilt": 30.5,
+   "chain_tilt": 30.5,
+   "one_persistence": 24.9,
+   "chain_persistence": 26.0,
+   "one_indicated": 13.5,
+   "chain_indicated": 18.8,
+   "one_ours": 27.9,
+   "chain_ours": 29.0,
+   "one_oracle": 135.8,
+   "chain_oracle": 134.5,
+   "one_hgb": 32.1,
+   "chain_hgb": 32.4,
+   "price_oracle": 129.7,
+   "price_last_seen": -13.8,
+   "price_ridge": 15.1,
+   "price_hgb": 21.2
   },
   {
    "year": 2025,
-   "tilt": 44.5,
-   "persistence": 36.7,
-   "indicated": 28.3,
-   "ours": 47.2,
-   "oracle_sign": 131.1
+   "one_tilt": 44.5,
+   "chain_tilt": 44.5,
+   "one_persistence": 36.7,
+   "chain_persistence": 41.3,
+   "one_indicated": 28.3,
+   "chain_indicated": 33.1,
+   "one_ours": 47.2,
+   "chain_ours": 48.9,
+   "one_oracle": 131.1,
+   "chain_oracle": 130.0,
+   "one_hgb": 48.9,
+   "chain_hgb": 49.8,
+   "price_oracle": 116.3,
+   "price_last_seen": -6.7,
+   "price_ridge": 18.8,
+   "price_hgb": 17.8
   },
   {
    "year": 2026,
-   "tilt": 36.8,
-   "persistence": 44.0,
-   "indicated": 37.9,
-   "ours": 43.5,
-   "oracle_sign": 89.5
+   "one_tilt": 36.8,
+   "chain_tilt": 36.8,
+   "one_persistence": 44.0,
+   "chain_persistence": 45.1,
+   "one_indicated": 37.9,
+   "chain_indicated": 43.5,
+   "one_ours": 43.5,
+   "chain_ours": 43.8,
+   "one_oracle": 89.5,
+   "chain_oracle": 89.3,
+   "one_hgb": 43.4,
+   "chain_hgb": 43.8,
+   "price_oracle": 98.1,
+   "price_last_seen": 19.0,
+   "price_ridge": 19.3,
+   "price_hgb": 27.4
   }
- ]
+ ],
+ "skill_curve": {
+  "one": [
+   {
+    "k": 0.0,
+    "brier": 0.0,
+    "gbp_per_day": 224.1
+   },
+   {
+    "k": 0.25,
+    "brier": 0.0143,
+    "gbp_per_day": 219.7
+   },
+   {
+    "k": 0.5,
+    "brier": 0.0573,
+    "gbp_per_day": 192.6
+   },
+   {
+    "k": 0.75,
+    "brier": 0.1289,
+    "gbp_per_day": 130.8
+   },
+   {
+    "k": 1.0,
+    "brier": 0.2291,
+    "gbp_per_day": 46.0
+   },
+   {
+    "k": 1.25,
+    "brier": 0.3571,
+    "gbp_per_day": -74.0
+   },
+   {
+    "k": 1.5,
+    "brier": 0.4998,
+    "gbp_per_day": -196.9
+   }
+  ],
+  "chain": [
+   {
+    "k": 0.0,
+    "brier": 0.0,
+    "gbp_per_day": 223.1
+   },
+   {
+    "k": 0.25,
+    "brier": 0.0143,
+    "gbp_per_day": 213.5
+   },
+   {
+    "k": 0.5,
+    "brier": 0.0573,
+    "gbp_per_day": 181.7
+   },
+   {
+    "k": 0.75,
+    "brier": 0.1289,
+    "gbp_per_day": 126.0
+   },
+   {
+    "k": 1.0,
+    "brier": 0.2291,
+    "gbp_per_day": 48.4
+   },
+   {
+    "k": 1.25,
+    "brier": 0.3571,
+    "gbp_per_day": -57.9
+   },
+   {
+    "k": 1.5,
+    "brier": 0.4998,
+    "gbp_per_day": -168.0
+   }
+  ]
+ }
 }
