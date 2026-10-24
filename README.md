@@ -23,7 +23,7 @@ Walk-forward, July 2022 to June 2026, refitted monthly, 70,120 half hours. The h
 | NESO indicated imbalance | 27.3 (20.0 to 35.7) | 32.1 (24.2 to 40.8) |
 | knowing the side (oracle) | 224.1 (203.9 to 245.6) | 223.1 (203.1 to 244.6) |
 
-Forecasting the price directly does worse than not forecasting at all: ridge £19.8, boosted £20.5, last seen price minus £9.8 a day. They are decent on average (ridge MAE £37.8, correlation 0.75) and wrong in exactly the periods the battery acts on. The boosted classifier ties the logistic model on money, so the logistic model is the one we ship.
+Forecasting the price directly does worse than not forecasting at all: ridge £19.8, boosted £20.5, last seen price minus £9.8 a day. They are decent on average (ridge MAE £37.8, correlation 0.75) and wrong in exactly the periods the battery acts on. The boosted classifier ties the logistic model on money, so the logistic model is the one we ship. The boosted rows move by up to £1 a day between machines and scikit-learn versions (a second laptop gave 46.6, 48.9 and £21.5); every other number here reproduced to the decimal on both.
 
 Reproduce every number here with `make reproduce`; the tables are written to `data/out/results.json`.
 
@@ -45,7 +45,7 @@ cd gate-closure
 pip install -r requirements.txt
 python -m pytest -q tests                                        # poison test on synthetic data, no network
 python -m gclose.ingest check                                    # 30-second Elexon smoke test, prints kB/s
-python -m gclose.ingest pull 2025-07-01 2026-10-23               # newest month first, resumable; Ctrl+C is safe
+python -m gclose.ingest pull 2022-01-01 2026-10-23               # newest month first, resumable; Ctrl+C is safe
 python -m gclose.backtest                                        # walk-forward P(short) ladder, Brier with intervals
 python -m gclose.price_models                                    # boosted and ridge checks (about 3 minutes)
 python -m gclose.decide                                          # battery P&L for every policy, value of skill
