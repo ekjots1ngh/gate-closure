@@ -1,0 +1,131 @@
+/* A grid control-room mimic panel: enamel board, cream lettering, amber and blue lamps. */
+
+:root {
+  --panel: #2e3833;
+  --recess: #252d29;
+  --rule: #48544e;
+  --ink: #ece6d2;
+  --ink-soft: #b4bbae;
+  --ink-faint: #7f8a82;
+  --short: #f0a43c;   /* grid short of power: prices high */
+  --long: #5fb4c9;    /* grid long: prices low */
+  --ours: #ece6d2;
+  --schedule: #9aa69c;
+  --lamp-off: #3a4540;
+  --display: 'B612 Mono', ui-monospace, monospace;
+  --text: 'B612', system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; background: var(--panel); color: var(--ink); }
+
+body {
+  font-family: var(--text);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font: inherit; color: inherit; }
+
+:focus-visible { outline: 2px solid var(--short); outline-offset: 2px; }
+
+.board { max-width: 1480px; margin: 0 auto; padding: 18px 22px 40px; }
+
+/* Header: name, the replay clock, and the controls. */
+.masthead {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: end;
+  gap: 24px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--rule);
+}
+.masthead h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 0.01em; }
+.masthead p { margin: 2px 0 0; color: var(--ink-soft); max-width: 60ch; }
+.clock { justify-self: center; text-align: center; }
+.clock .time { font-size: 40px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.clock .day { color: var(--ink-soft); margin-top: 4px; }
+.controls { display: flex; gap: 6px; align-items: center; }
+.controls button {
+  background: var(--recess);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.controls button[aria-pressed='true'] { border-color: var(--ink-soft); background: #39443e; }
+.controls .poison[aria-pressed='true'] { border-color: var(--short); color: var(--short); }
+
+/* The board's insets: recessed panels separated by engraved rules. */
+.deck {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) 1fr;
+  grid-template-rows: auto auto;
+  gap: 16px;
+  margin-top: 16px;
+}
+.inset {
+  background: var(--recess);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 12px 14px;
+  position: relative;
+  min-width: 0;
+}
+.inset h2 { margin: 0 0 6px; font-size: 15px; font-weight: 700; }
+.inset .note { color: var(--ink-faint); font-size: 12px; margin: 6px 0 0; max-width: 70ch; }
+
+.gate { grid-column: 2; grid-row: 1; }
+.map { grid-column: 1; grid-row: 1 / span 2; }
+.battery { grid-column: 2; grid-row: 2; display: grid; grid-template-columns: 300px 1fr; gap: 18px; }
+
+svg text { font-family: var(--text); fill: var(--ink-soft); font-size: 11px; }
+svg .readout { font-family: var(--display); fill: var(--ink); }
+svg .figure { fill: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Lamps light and fade; a reduced-motion reader gets the state without the glow. */
+.lamp { transition: fill 220ms ease, opacity 220ms ease; }
+@keyframes ring { from { r: 4px; opacity: 0.9; } to { r: 22px; opacity: 0; } }
+.pulse { animation: ring 1.4s ease-out 1; fill: none; stroke-width: 1.5; }
+
+.cells { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 10px; }
+.cell { height: 54px; border: 1px solid var(--rule); border-radius: 3px; background: var(--lamp-off); transition: background 240ms ease; }
+.cell.on { background: var(--ink-soft); }
+.state-line { display: flex; justify-content: space-between; color: var(--ink-soft); }
+.action { font-family: var(--display); font-size: 18px; color: var(--ink); }
+.ledger-figures { display: grid; grid-template-columns: auto auto; gap: 2px 14px; margin-top: 10px; }
+.ledger-figures .figure { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Below the board: what skill is worth, and the receipts. */
+.section { margin-top: 34px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.section > h2 { grid-column: 1 / -1; margin: 0; font-size: 22px; }
+.section .lede { grid-column: 1 / -1; color: var(--ink-soft); margin: 0 0 4px; max-width: 78ch; }
+.slider { width: 100%; accent-color: var(--ink); }
+.figures { display: flex; gap: 28px; margin-top: 8px; }
+.figures div { display: grid; }
+.figures .big { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.figures .label { color: var(--ink-soft); font-size: 12px; }
+
+.ledger-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.ledger-table th { text-align: left; color: var(--ink-faint); font-weight: 400; padding: 3px 6px; border-bottom: 1px solid var(--rule); }
+.ledger-table td { padding: 3px 6px; border-bottom: 1px solid #323c37; font-variant-numeric: tabular-nums; }
+.ledger-table .pre-fix td { color: var(--ink-faint); text-decoration: line-through; }
+
+.poison-card { border-color: var(--short); }
+.check { font-size: 30px; font-weight: 700; color: var(--ink); }
+
+@media (max-width: 980px) {
+  .deck, .section { grid-template-columns: 1fr; }
+  .gate, .map, .battery { grid-column: 1; grid-row: auto; }
+  .battery { grid-template-columns: 1fr; }
+  .masthead { grid-template-columns: 1fr; }
+  .clock { justify-self: start; text-align: left; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse { animation: none; opacity: 0; }
+  .lamp, .cell { transition: none; }
+}

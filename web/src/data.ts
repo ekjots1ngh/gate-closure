@@ -36,35 +36,46 @@ export interface Replay {
   value_of_skill: { one: SkillPoint[]; chain: SkillPoint[] };
 }
 
-/** Derived, precomputed series so the animation loop only does lookups. */
-export interface Derived {
-  t0: number;               // ms epoch of period 0
-  n: number;
-  cum: { ours: number[]; schedule: number[]; side_oracle: number[] }; // cum[k] = sum of pnl over periods < k
-  sse: { ours: number[]; indicated: number[]; persistence_cal: number[] }; // cumulative squared error, same indexing
-  cutoffIndex: number;
-}
+export const PERIOD_MS = 30 * 60_000;
+export const GATE_MS = 60 * 60_000;     // the decision for a period is made an hour before it starts
+export const PRINT_MS = 52 * 60_000;    // its price prints about 52 minutes after it starts
 
-export const PERIOD_MS = 30 * 60 * 1000;
+export type Leg3 = 'ours' | 'schedule' | 'side_oracle';
+export const LEGS: Leg3[] = ['ours', 'schedule', 'side_oracle'];
+
+/** Precomputed series, so the animation loop only does lookups. */
+export interface Derived {
+  t0: number;                            // ms epoch of the first period's start
+  n: number;
+  starts: number[];                      // ms epoch of each period's start
+  cum: Record<Leg3, number[]>;           // cum[leg][k] = P&L of periods 0..k-1
+  cutoff: number;                        // the poison check's cutoff, ms epoch
+}
 
 export function derive(r: Replay): Derived {
   const n = r.tape.length;
-  const t0 = Date.parse(r.tape[0].t);
-  const mk = () => new Array(n + 1).fill(0) as number[];
-  const cum = { ours: mk(), schedule: mk(), side_oracle: mk() };
-  const sse = { ours: mk(), indicated: mk(), persistence_cal: mk() };
-  r.tape.forEach((d, i) => {
-    cum.ours[i + 1] = cum.ours[i] + d.ours.pnl;
-    cum.schedule[i + 1] = cum.schedule[i] + d.schedule.pnl;
-    cum.side_oracle[i + 1] = cum.side_oracle[i] + d.side_oracle.pnl;
-    sse.ours[i + 1] = sse.ours[i] + (d.p_ours - d.short) ** 2;
-    sse.indicated[i + 1] = sse.indicated[i] + (d.p_indicated - d.short) ** 2;
-    sse.persistence_cal[i + 1] = sse.persistence_cal[i] + (d.p_persistence_cal - d.short) ** 2;
-  });
-  const cutoffMs = Date.parse(r.poison.cutoff);
-  const cutoffIndex = Math.round((cutoffMs - t0) / PERIOD_MS);
-  return { t0, n, cum, sse, cutoffIndex };
+  const starts = r.tape.map((d) => Date.parse(d.t));
+  const cum = Object.fromEntries(LEGS.map((leg) => {
+    const out = new Array(n + 1).fill(0) as number[];
+    r.tape.forEach((d, i) => { out[i + 1] = out[i] + d[leg].pnl; });
+    return [leg, out];
+  })) as Record<Leg3, number[]>;
+  return { t0: starts[0], n, starts, cum, cutoff: Date.parse(r.poison.cutoff) };
 }
+
+const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
+
+/** How many periods have printed their price by `now`. */
+export const printedCount = (d: Derived, now: number) => clamp(Math.floor((now - d.t0 - PRINT_MS) / PERIOD_MS) + 1, 0, d.n);
+
+/** How many periods have been decided by `now` (their gate has passed). */
+export const decidedCount = (d: Derived, now: number) => clamp(Math.floor((now - d.t0 + GATE_MS) / PERIOD_MS) + 1, 0, d.n);
+
+/** The period in progress at `now`, or -1 outside the replay. */
+export const periodAt = (d: Derived, now: number) => {
+  const i = Math.floor((now - d.t0) / PERIOD_MS);
+  return i >= 0 && i < d.n ? i : -1;
+};
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

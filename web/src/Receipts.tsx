@@ -1,0 +1,99 @@
+import { useEffect, useState } from 'react';
+import { hhmm, type Replay } from './data';
+
+const LEDGER = 'https://raw.githubusercontent.com/ekjots1ngh/gate-closure/main/ledger/decisions.jsonl';
+const REFRESH_MS = 60_000;
+// Mirrors PRE_FIX in gclose/live.py: decided by the process still running the code from before
+// PROTOCOL amendment 8. They stay in the ledger and are not scored.
+const PRE_FIX = new Set(['2026-10-24T18:30:00+00:00']);
+
+interface Decision {
+  target_start: string;
+  gate: string;
+  decided_at: string;
+  p_short: number;
+  action: number;
+  soc_after: number;
+  model_sha256: string;
+}
+
+/** The poison check on this very week, and the live record as it is pushed to GitHub. */
+export default function Receipts({ r, onPoison }: { r: Replay; onPoison: () => void }) {
+  const p = r.poison;
+  return (
+    <>
+      <div className="inset poison-card">
+        <h2>Poison the future</h2>
+        <p>
+          Every Elexon row published after {hhmm(Date.parse(p.cutoff))} on Thursday was replaced with noise, and the
+          whole pipeline was rebuilt. For the {p.decisions_checked} half hours decided before the cutoff:
+        </p>
+        <div className="figures">
+          <div><span className="check">{p.features_changed}</span><span className="label">inputs changed</span></div>
+          <div><span className="check">{p.forecasts_changed}</span><span className="label">forecasts changed</span></div>
+          <div><span className="check">{p.decisions_changed}</span><span className="label">decisions changed</span></div>
+          <div><span className="check">{p.later_rows_poisoned}</span><span className="label">later rows that did change</span></div>
+        </div>
+        <p className="note">
+          Computed on the real data by <code>python -m gclose.export</code>. The test suite runs the same check with a
+          cutoff before every publication, and plants five leaks to prove it catches them.
+        </p>
+        <div className="controls"><button onClick={onPoison}>Show it on the replay (P)</button></div>
+      </div>
+      <LiveLedger />
+    </>
+  );
+}
+
+function LiveLedger() {
+  const [rows, setRows] = useState<Decision[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      fetch(`${LEDGER}?t=${Date.now()}`)
+        .then((res) => (res.ok ? res.text() : Promise.reject(res.status)))
+        .then((text) => alive && (setRows(text.trim().split('\n').map((line) => JSON.parse(line))), setFailed(false)))
+        .catch(() => alive && setFailed(true));
+    load();
+    const timer = setInterval(load, REFRESH_MS);
+    return () => { alive = false; clearInterval(timer); };
+  }, []);
+
+  return (
+    <div className="inset">
+      <h2>The live record</h2>
+      <p>
+        Since the freeze, every half hour, a forecast and a trade are written down and pushed to GitHub before the
+        half hour's gate. The prices come later.
+      </p>
+      {failed && <p className="note">GitHub is out of reach from here; the record is in ledger/decisions.jsonl in the repository.</p>}
+      {rows && (
+        <table className="ledger-table">
+          <thead><tr><th>half hour (UTC)</th><th>decided</th><th>before the gate</th><th>P(short)</th><th>action</th></tr></thead>
+          <tbody>
+            {rows.slice(-9).reverse().map((row) => {
+              const lead = (Date.parse(row.gate) - Date.parse(row.decided_at)) / 60_000;
+              return (
+                <tr key={row.target_start} className={PRE_FIX.has(row.target_start) ? 'pre-fix' : undefined}>
+                  <td>{row.target_start.slice(5, 16).replace('T', ' ')}</td>
+                  <td>{row.decided_at.slice(11, 16)}</td>
+                  <td>{lead.toFixed(0)} min</td>
+                  <td>{row.p_short.toFixed(2)}</td>
+                  <td>{row.action > 0 ? 'discharge' : row.action < 0 ? 'charge' : 'hold'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      {rows && <p className="note">Model {rows[rows.length - 1].model_sha256.slice(0, 12)}, {rows.length} decisions so far.</p>}
+      {rows?.some((row) => PRE_FIX.has(row.target_start)) && (
+        <p className="note">
+          Struck through: decided by the first process, still running the code from before the fix in amendment 8.
+          The ledger is never edited, so the line stays, and the score leaves it out.
+        </p>
+      )}
+    </div>
+  );
+}
