@@ -1,5 +1,7 @@
 # Gate Closure
 
+[![tests](https://github.com/ekjots1ngh/gate-closure/actions/workflows/ci.yml/badge.svg)](https://github.com/ekjots1ngh/gate-closure/actions/workflows/ci.yml)
+
 **Forecasting the GB grid's imbalance one hour ahead, and pricing what that forecast is worth.**
 
 Every half hour the GB electricity system is either short of power or long. Whoever is on the wrong side pays the imbalance price, which nobody knows until about twenty minutes after the half hour ends. One hour before each half hour, at gate closure, we forecast which side the grid will be on, using only data that was public at that moment. A simulated 1 MW / 2 MWh battery trades on the forecast.
