@@ -33,6 +33,21 @@ class Persistence:
         return df["short_lag4"].fillna(0.5).clip(0.02, 0.98).to_numpy()
 
 
+class PersistenceCalibrated:
+    """Persistence as a probability: P(short_t | short_{t-4}), fitted on the training window.
+
+    Added after the first run showed the raw 0/1 persistence baseline is overconfident
+    (PROTOCOL.md amendment 2). Strengthening a baseline can only make our headline harder.
+    """
+    def fit(self, df):
+        d = df.dropna(subset=["short_lag4"])
+        self.m = LogisticRegression().fit(d[["short_lag4"]], d["short"])
+        return self
+
+    def predict_proba(self, df):
+        return self.m.predict_proba(df[["short_lag4"]].fillna(0.5))[:, 1]
+
+
 class IndicatedImbalance:
     """NESO's own view, recalibrated by a one-feature logistic regression."""
     def fit(self, df):
@@ -58,7 +73,8 @@ class Ours:
         return self.m.predict_proba(x)[:, 1]
 
 
-LADDER = {"coin": Coin, "persistence": Persistence, "indicated": IndicatedImbalance, "ours": Ours}
+LADDER = {"coin": Coin, "persistence": Persistence, "persistence_cal": PersistenceCalibrated,
+          "indicated": IndicatedImbalance, "ours": Ours}
 
 
 class PriceQuantiles:

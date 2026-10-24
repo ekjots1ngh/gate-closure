@@ -97,7 +97,8 @@ def battery_table(preds: pd.DataFrame) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    f = load_features()
+    cache = OUT / "features.parquet"
+    f = pd.read_parquet(cache) if cache.exists() else load_features()
     preds = walk_forward(f)
     preds.to_csv(OUT / "walkforward.csv", index=False)
     print(headline(preds).to_string(index=False))
