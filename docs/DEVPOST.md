@@ -1,0 +1,41 @@
+# Devpost write-up
+
+Pasted into the submission form on Sunday. Bracketed figures are filled in after the holdout is opened and the ledger scored.
+
+## Inspiration
+
+Every half hour the GB electricity system is either short of power or long, and whoever is on the wrong side pays the imbalance price. Nobody knows that price until about twenty minutes after the half hour ends, but the decision has to be made an hour before it starts, at gate closure. The hack's theme was time, and this is a project about one hour of it: the hour between deciding and knowing. HRT's challenge asked for the best use of data for predictions and decision making, so we built both halves and, more importantly, measured how much the prediction is worth to the decision.
+
+## What it does
+
+One hour before each half hour, Gate Closure forecasts whether the grid will be short or long, using only data that was public at that moment: the four-period-old price, and the newest wind, demand and NESO imbalance forecasts published strictly before the gate. A simulated 1 MW / 2 MWh battery then trades on the forecast through a dynamic programme. Everything is scored against a ladder of baselines (a coin, persistence, NESO's own forecast) and against two ceilings (knowing the side an hour early, knowing every price in advance), with intervals that resample whole weeks.
+
+Over four years of walk-forward testing (July 2022 to June 2026, refitted monthly, 70,120 half hours) the forecast scores Brier 0.2293 against 0.2409 for calibrated persistence and 0.2468 for NESO's forecast. The battery earns £48.3 a day with it against £42.9 on a fixed schedule, a gain of £5.4 a day [1.0, 9.7]. The number we are proudest of is the exchange rate: each 0.01 of Brier is worth £8 to £10 a day to this battery, and a coin-flip-quality forecast loses £13 to £19 a day against not forecasting at all. The first slice of skill only pays for the right to act.
+
+## How we built it
+
+Python, pandas, numpy and scikit-learn, with React and d3 for the demo. Elexon's public Insights API supplies prices, imbalance volumes and every forecast vintage; the raw data is committed as 232 monthly parquet files so every number rebuilds offline in about three minutes. Features are built with one point-in-time as-of join per dataset, strictly before the gate, and prices are used only once they have printed. The forecast is a logistic regression on 16 inputs, refitted monthly on outcomes that were public at that month's first gate. The battery is a Bellman dynamic programme over state of charge, vectorised across all 70,120 half hours, with the same optimiser used for every forecast and for the ceilings, so a difference in money is the forecast's doing.
+
+The maths is second- and third-year material used where it earns its place: proper scoring rules, Murphy's decomposition, a week-block bootstrap with paired intervals, the Diebold-Mariano test with Newey-West variance, the law of total expectation and certainty equivalence, backward induction, a two-state Markov chain to carry the forecast forward, the expected value of information, and Sharpe and information ratios. Each one has a number next to it in the README.
+
+## Challenges we ran into
+
+Elexon changed what it serves in February 2024: prices now come as revised the next day, and the first print is not kept. We found this through an independent code review mid-hack, documented it as a known limitation, and report every result split by era. The same review found that the daily loss limit was acting on cash the battery could not yet know, and that the first version of the poison test could not fail. We fixed each in the open, as dated amendments to the pre-registration.
+
+The live record found its own bug in rehearsal: when the newest half hour had not printed, a placeholder row read as "long". We fixed it, added a test, moved the live decisions to six minutes before each gate so the newest price has normally printed, and left the one affected ledger line in place, listed and unscored. The ledger is never edited.
+
+## Accomplishments that we're proud of
+
+A pre-registration written before the first result, with eight dated amendments. A poison test that replaces everything published after a cutoff with noise, with a cutoff one minute before every publication, and five planted leaks it must catch. A sealed holdout, opened once on Sunday morning: [holdout result]. And a frozen model, plain JSON with a SHA-256, deciding every half hour since 16:52 UTC on Saturday and pushing each decision to GitHub before that half hour's gate: [N] decisions, every one before its gate, Brier [x] on the ones that have printed.
+
+## What we learned
+
+Calibration is not the same as being useful. Our forecast is almost perfectly calibrated (reliability 0.0003) but rarely strays far from 50/50, and resolution is what the battery pays for. Also: the limit was the information, not the estimator. Boosted trees beat the logistic model on Brier and not on money, and the side oracle, £223 a day, shows the size of the gap nobody at the gate can see.
+
+## What's next
+
+Archive first prints ourselves, because the revised-price era costs £6.7 a day of measurable edge. Adopt the measured memory in the chain policy, pre-registered this time, for about £1 a day. Look for inputs that move P(short) away from 50/50, such as interconnector and plant outage notices. And keep the ledger running: the live record is the experiment that never ends.
+
+## Built with
+
+Python, pandas, numpy, scikit-learn, pytest, ruff, React, TypeScript, d3, Vite, Elexon Insights API.
