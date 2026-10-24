@@ -74,6 +74,7 @@ a { color: inherit; }
 }
 .controls button[aria-pressed='true'] { border-color: var(--ink-soft); color: var(--ink); background: #39443e; }
 .controls .speed { min-width: 46px; font-variant-numeric: tabular-nums; }
+.controls .play { background: var(--ink); color: var(--panel); border-color: var(--ink); font-weight: 700; }
 .controls .poison { margin-left: 8px; }
 .controls .poison[aria-pressed='true'] { border-color: var(--short); color: var(--short); }
 .four-years { grid-column: 3; justify-self: end; margin: 8px 0 0; font-size: 12.5px; color: var(--ink-soft); text-align: right; max-width: 60ch; }

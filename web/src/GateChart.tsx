@@ -5,7 +5,7 @@ import { useSize } from './useSize';
 
 const HOUR = 3_600_000;
 const BACK_HOURS = 7;                        // history on screen
-const AHEAD_HOURS = 2.4;                     // the gate band and the period just decided
+const AHEAD_HOURS = 2.9;                     // the gate band and the period just decided
 const M = { top: 22, right: 16, left: 112 };
 const TRACK = 20;                            // px either side of the 50% line in the P(short) track
 const FULL = 0.4;                            // a call this far from 50% (a 90% call) fills the track

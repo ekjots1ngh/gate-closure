@@ -13,9 +13,10 @@ import Reliability from './Reliability';
 import Skill from './Skill';
 
 const R = replay as unknown as Replay;
-const SPEEDS = [1, 4, 16];                     // half hours of replay per second
-// Open on Tuesday 16:00: within ten seconds the battery discharges into the week's dearest evening.
-const START_OFFSET = 40 * 3_600_000;
+const SPEEDS = [0.5, 2, 8];                    // half hours of replay per second: slow enough to read by default
+// Open on Tuesday 18:00, paused: one press of play and the battery discharges into the week's dearest evening.
+const START_OFFSET = 42 * 3_600_000;
+const CLOCK_STEP_MS = 10 * 60_000;            // the clock shows ten-minute steps, so it can be read while it runs
 const REPO = 'https://github.com/ekjots1ngh/gate-closure';
 
 const brier = (model: string) => R.forecasts.find((f) => f.model === model)!.brier;
@@ -24,7 +25,7 @@ export default function App() {
   const d = useMemo(() => derive(R), []);
   const end = d.starts[d.n - 1] + 3 * PERIOD_MS;
   const [now, setNow] = useState(d.t0 + START_OFFSET);
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(SPEEDS[0]);
   const [poison, setPoison] = useState(false);
   const [noiseSeed, setNoiseSeed] = useState(1);
@@ -98,12 +99,12 @@ export default function App() {
             </p>
           </div>
           <div className="clock" aria-live="off">
-            <div className="time readout">{hhmm(now)}</div>
+            <div className="time readout">{hhmm(Math.floor(now / CLOCK_STEP_MS) * CLOCK_STEP_MS)}</div>
             <div className="day">{dayLabel(now)} 2026, UTC</div>
           </div>
           <div>
             <div className="controls">
-              <button onClick={() => { setPoison(false); setPlaying((p) => !p); }} aria-pressed={playing} title="Space">{playing ? 'Pause' : 'Play'}</button>
+              <button className={playing ? undefined : 'play'} onClick={() => { setPoison(false); setPlaying((p) => !p); }} aria-pressed={playing} title="Space">{playing ? 'Pause' : 'Play the week'}</button>
               <button className="speed" onClick={nextSpeed} title="Half hours a second; keys 1, 2, 3">{speed}×</button>
               <button className="poison" onClick={togglePoison} aria-pressed={poison} title="P">Poison the future</button>
             </div>
