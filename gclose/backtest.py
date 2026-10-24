@@ -50,7 +50,7 @@ def walk_forward(f: pd.DataFrame, first_test="2023-01", last_test="2026-06") -> 
 def week_block_bootstrap(series: pd.Series, times: pd.Series, n=1000, seed=0, q=(0.05, 0.95)):
     """Resample whole ISO weeks with replacement; return mean and the (5%, 95%) interval."""
     rng = np.random.default_rng(seed)
-    weeks = times.dt.to_period("W").to_numpy()
+    weeks = times.dt.tz_convert("UTC").dt.tz_localize(None).dt.to_period("W").to_numpy()
     uniq = np.unique(weeks)
     by_week = {w: series.to_numpy()[weeks == w] for w in uniq}
     means = []
