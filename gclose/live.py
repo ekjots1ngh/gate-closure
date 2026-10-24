@@ -44,7 +44,7 @@ MODEL = LEDGER / "model.json"
 DECISIONS = LEDGER / "decisions.jsonl"
 SCORE = LEDGER / "score.json"
 RECENT = timedelta(days=3)  # raw data fetched each run: enough for every lag and rolling window
-RUN_AT_MINUTES = (2, 32)  # runs at :02 and :32, about half an hour before the target's gate
+RUN_AT_MINUTES = (24, 54)  # six minutes before each gate: late enough for t-4's price to have printed
 HALF_HOUR = pd.Timedelta(minutes=30)
 
 
@@ -252,7 +252,11 @@ def run_forever() -> None:
                 )
             except Exception as error:
                 print(f"{now:%H:%M} run failed, will retry next half hour: {error!r}", file=sys.stderr)
-        time.sleep(max((_next_run(pd.Timestamp.now(tz="UTC")) - pd.Timestamp.now(tz="UTC")).total_seconds(), 1))
+        next_run = _next_run(pd.Timestamp.now(tz="UTC"))
+        print(
+            f"  next decision at {next_run:%H:%M} UTC, for the period starting {target_for(next_run):%H:%M}", flush=True
+        )
+        time.sleep(max((next_run - pd.Timestamp.now(tz="UTC")).total_seconds(), 1))
 
 
 # ---------------------------------------------------------------- scoring

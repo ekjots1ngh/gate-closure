@@ -44,3 +44,14 @@ def test_a_changed_model_file_is_refused(table, tmp_path, monkeypatch):
     (tmp_path / "model.json").write_text(json.dumps(stored))
     with pytest.raises(SystemExit):
         live.Frozen.load()
+
+
+def test_a_period_that_has_not_printed_is_unknown_not_long():
+    """Live, the newest periods have no price yet; their features must be missing, never invented."""
+    prices, *vintages = _synthetic(days=3)
+    target = prices["start_time"].iloc[-1]
+    not_yet_printed = prices.iloc[:-5]  # t-4 to t have no price at decision time
+    row = build(live._with_future_rows(not_yet_printed, target), *vintages).iloc[-1]
+    assert row["start_time"] == target
+    assert np.isnan(row["short_newest"]) and np.isnan(row["niv_newest"]) and np.isnan(row["price_newest"])
+    assert row["short_prev1"] in (0.0, 1.0)  # t-5 did print, so it is known

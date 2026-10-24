@@ -52,9 +52,14 @@ FEATURES = [
 
 
 def first_print_at(prices: pd.DataFrame) -> pd.Series:
-    """When each price was first public: created_at if that is the first print, else the median delay."""
+    """When each price was first public: created_at if that is the first print, else the median delay.
+
+    A row with no created_at has not printed at all (the live record's placeholders for periods
+    still to come), so it stays NaT and is never treated as public.
+    """
     start, created = prices["start_time"].astype(TS), prices["created_at"].astype(TS)
-    return created.where(created - start < REFRESHED_AFTER, start + FIRST_PRINT_DELAY)
+    refreshed = created - start >= REFRESHED_AFTER
+    return created.where(~refreshed, start + FIRST_PRINT_DELAY)
 
 
 def _latest_before(keys: pd.Series, at: pd.Series, vintages: pd.DataFrame) -> pd.DataFrame:
@@ -100,7 +105,7 @@ def build(prices: pd.DataFrame, windfor: pd.DataFrame, ndf: pd.DataFrame, imbaln
     p = prices[["start_time", "created_at", "ssp", "niv"]].sort_values("start_time").reset_index(drop=True)
     p = p.astype({"start_time": TS, "created_at": TS})
     p["gate"] = p["start_time"] - GATE_LEAD
-    p["short"] = (p["niv"] > 0).astype(int)
+    p["short"] = (p["niv"] > 0).astype(float).where(p["niv"].notna())  # unknown until the volume prints
     printed = first_print_at(p)
 
     def printed_by_gate(column: str, rows_back: int) -> pd.Series:
