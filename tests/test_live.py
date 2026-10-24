@@ -55,3 +55,18 @@ def test_a_period_that_has_not_printed_is_unknown_not_long():
     assert row["start_time"] == target
     assert np.isnan(row["short_newest"]) and np.isnan(row["niv_newest"]) and np.isnan(row["price_newest"])
     assert row["short_prev1"] in (0.0, 1.0)  # t-5 did print, so it is known
+
+
+def test_pre_fix_lines_are_recognised_by_the_bug_s_signature():
+    """A side for the newest period while its volume had not printed can only come from the old code."""
+    ledger = pd.DataFrame(
+        {
+            "target_start": ["a", "b", "c"],
+            "inputs": [
+                {"short_newest": 1.0, "niv_newest": 591.6},  # everything printed: fine
+                {"short_newest": 0.0, "niv_newest": None},  # the bug: a side invented for an unprinted period
+                {"short_newest": None, "niv_newest": None},  # the fix: unknown stays unknown
+            ],
+        }
+    )
+    assert live.pre_fix(ledger).tolist() == [False, True, False]

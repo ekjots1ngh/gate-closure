@@ -3,11 +3,9 @@ import { hhmm, type Replay } from './data';
 
 const LEDGER = 'https://raw.githubusercontent.com/ekjots1ngh/gate-closure/main/ledger/decisions.jsonl';
 const REFRESH_MS = 60_000;
-// Mirrors gclose/live.py: the process still running the code from before PROTOCOL amendment 8
-// decided 28 minutes before each gate, where the fixed code decides 6 minutes before. Its lines
-// stay in the ledger and are not scored.
-const PRE_FIX_LEAD_MIN = 15;
-const preFix = (row: Decision) => (Date.parse(row.gate) - Date.parse(row.decided_at)) / 60_000 > PRE_FIX_LEAD_MIN;
+// Mirrors gclose/live.py: lines from the code before PROTOCOL amendment 8 carry its bug's signature,
+// a side for the newest period although its volume had not printed. They stay in the ledger and are not scored.
+const preFix = (row: Decision) => row.inputs.short_newest !== null && row.inputs.niv_newest === null;
 
 interface Decision {
   target_start: string;
@@ -17,6 +15,7 @@ interface Decision {
   action: number;
   soc_after: number;
   model_sha256: string;
+  inputs: Record<string, number | null>;
 }
 
 /** The poison check on this very week, and the live record as it is pushed to GitHub. */
@@ -93,7 +92,7 @@ function LiveLedger() {
       {rows?.some(preFix) && (
         <p className="note">
           Struck through: decided by the first process, still running the code from before the fix in amendment 8, and
-          recognisable by its 28-minute lead. The ledger is never edited, so the lines stay, and the score leaves them out.
+          recognisable by that bug’s signature in its inputs. The ledger is never edited, so the lines stay, and the score leaves them out.
         </p>
       )}
     </div>

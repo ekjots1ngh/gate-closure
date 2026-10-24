@@ -95,7 +95,7 @@ flowchart LR
 
 - **Pre-registered.** [`PROTOCOL.md`](PROTOCOL.md) fixed the question, baselines, battery, metrics and failure condition before any result existed. Every later change is a dated amendment saying what changed, why, and its effect, including the ones found by an independent code review.
 - **Held out.** July to 23 October 2026 is sealed. `python -m gclose.holdout` opens it once, after the freeze, with the walk-forward's own recipe, and refuses to run a second time.
-- **Live.** From the freeze, `python -m gclose.live run` decides every half hour and pushes each decision to [`ledger/decisions.jsonl`](ledger/) six minutes before that half hour's gate, once the newest price has normally printed. The frozen model is [plain JSON](ledger/model.json) with a SHA-256 of its contents, and every line carries that hash, so anyone can recompute any decision. GitHub's timestamps are the receipt. Some lines came from old code: after the fix in [amendment 8](PROTOCOL.md#amendments) the first process kept running beside the fixed one for a while, deciding 28 minutes before each gate (from the 18:30 UTC half hour on 24 October) and reading the unprinted newest period as long. The ledger is append-only, so those lines stay, recognisable by their lead; the fixed code decides 6 minutes before the gate, and `python -m gclose.live score` leaves out every line decided more than 15 minutes before its gate and lists them.
+- **Live.** From the freeze, `python -m gclose.live run` decides every half hour and pushes each decision to [`ledger/decisions.jsonl`](ledger/) six minutes before that half hour's gate, once the newest price has normally printed. The frozen model is [plain JSON](ledger/model.json) with a SHA-256 of its contents, and every line carries that hash, so anyone can recompute any decision. GitHub's timestamps are the receipt. Some lines came from old code: after the fix in [amendment 8](PROTOCOL.md#amendments) the first process kept running beside the fixed one for a while (from the 18:30 UTC half hour on 24 October), reading the unprinted newest period as long. The ledger is append-only, so those lines stay. They carry the bug's signature, a side for the newest period although its volume had not printed, and `python -m gclose.live score` leaves them out and lists them.
 - **Known limitation.** From February 2024 Elexon serves each price as revised the next day, and the first print is not kept. In that era our price-based inputs use revised values that were not public at the gate (the timing rule itself is still enforced). We report both eras: before the switch, with clean first prints, ours beats the schedule by £9.4 a day and persistence by 0.0127 Brier; after it, by £2.7 and 0.0110.
 - **Reproducible.** The raw data is committed, so every number rebuilds offline. Two machines agree to the decimal on everything except the boosted model, which moves by up to £2 a day with floating-point differences in tree building.
 
@@ -113,7 +113,7 @@ Python 3.11 or later, any OS. About three minutes from a clean clone, with no ne
 pip install -e ".[dev]"            # or: pip install -r requirements.txt
 make reproduce                     # or run the lines below in order
 
-python -m pytest -q                # 28 tests, about 15 s
+python -m pytest -q                # 29 tests, about 15 s
 python -m gclose.features          # gate-safe feature table from data/raw (12 s)
 python -m gclose.backtest          # walk-forward forecasts, Brier and log loss
 python -m gclose.price_models      # the boosted and ridge checks (1.5 min)
