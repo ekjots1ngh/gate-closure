@@ -39,12 +39,14 @@ def replay_week(periods: TestPeriods) -> pd.Period:
     return periods.rows[whole].groupby(weeks[whole])["ssp"].agg(np.ptp).idxmax()
 
 
+# What the model saw at each gate, shown on the demo's map: forecast levels and their latest revisions.
+DRIVERS = ("wind_latest", "wind_revision", "demand_latest", "demand_revision", "indicated_latest")
+
+
 def tape(study: Study, week: np.ndarray) -> list[dict]:
     """One record per half hour of the replay week: price, forecasts, drivers, and each battery's move."""
     rows = study.periods.rows[week].reset_index(drop=True)
-    drivers = rows[["start_time"]].merge(
-        load_table()[["start_time", "wind_revision", "demand_revision"]], on="start_time", how="left"
-    )
+    drivers = rows[["start_time"]].merge(load_table()[["start_time", *DRIVERS]], on="start_time", how="left")
     records = _records(
         pd.DataFrame(
             {
@@ -54,8 +56,7 @@ def tape(study: Study, week: np.ndarray) -> list[dict]:
                 "p_ours": rows["p_ours"],
                 "p_persistence_cal": rows["p_persistence_cal"],
                 "p_indicated": rows["p_indicated"],
-                "wind_revision_mw": drivers["wind_revision"],
-                "demand_revision_mw": drivers["demand_revision"],
+                **{f"{name}_mw": drivers[name] for name in DRIVERS},
             }
         )
     )

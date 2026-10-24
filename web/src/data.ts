@@ -2,7 +2,9 @@ export interface Leg { action: number; soc: number; pnl: number }
 export interface Row {
   t: string; price: number; short: number;
   p_ours: number; p_persistence_cal: number; p_indicated: number;
-  wind_revision_mw: number | null; demand_revision_mw: number | null;
+  wind_latest_mw: number | null; wind_revision_mw: number | null;        // national wind forecast at the gate, and its latest revision
+  demand_latest_mw: number | null; demand_revision_mw: number | null;
+  indicated_latest_mw: number | null;                                     // NESO's indicated imbalance: positive means surplus, long
   ours: Leg; schedule: Leg; side_oracle: Leg;
 }
 export interface Estimate { value: number; lo: number; hi: number }
