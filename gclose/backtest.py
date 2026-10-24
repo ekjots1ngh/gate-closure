@@ -57,15 +57,26 @@ def walk_forward(f: pd.DataFrame) -> pd.DataFrame:
 
 
 def brier_table(preds: pd.DataFrame) -> pd.DataFrame:
-    """Brier score per model with a 90% week-block bootstrap interval."""
-    y = preds["short"].to_numpy()
+    """Brier score and log loss per model, with 90% week-block intervals.
+
+    `ours_minus` is ours' Brier minus the model's, resampled in pairs (same weeks for both),
+    which is the right interval for "does ours beat it": negative and excluding zero means yes.
+    """
+    y = preds["short"].to_numpy()[:, None]
     names = list(LADDER)
-    sq_err = np.column_stack([(preds[f"p_{n}"].to_numpy() - y) ** 2 for n in names])
-    boot = stats.resampled_means(sq_err, stats.week_index(preds["start_time"]))
+    p = np.column_stack([preds[f"p_{n}"].to_numpy() for n in names])
+    sq_err = (p - y) ** 2
+    q = np.clip(p, 1e-6, 1 - 1e-6)
+    log_loss = -(y * np.log(q) + (1 - y) * np.log(1 - q)).mean(axis=0)
+    edge = sq_err[:, [names.index("ours")]] - sq_err
+    boot = stats.resampled_means(np.hstack([sq_err, edge]), stats.week_index(preds["start_time"]))
     rows = []
     for j, name in enumerate(names):
         lo, hi = stats.interval(boot[:, j])
-        rows.append({"model": name, "brier": round(sq_err[:, j].mean(), 4), "lo": round(lo, 4), "hi": round(hi, 4)})
+        e_lo, e_hi = stats.interval(boot[:, len(names) + j])
+        rows.append({"model": name, "brier": round(sq_err[:, j].mean(), 4), "lo": round(lo, 4), "hi": round(hi, 4),
+                     "log_loss": round(log_loss[j], 4), "ours_minus": round(edge[:, j].mean(), 4),
+                     "ours_minus_lo": round(e_lo, 4), "ours_minus_hi": round(e_hi, 4)})
     return pd.DataFrame(rows)
 
 
