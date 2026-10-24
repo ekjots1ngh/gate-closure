@@ -229,34 +229,40 @@ def _next_run(now: pd.Timestamp) -> pd.Timestamp:
     return min(c for c in candidates if c > now)
 
 
+def _sleep_until(moment: pd.Timestamp) -> None:
+    print(f"  next decision at {moment:%H:%M} UTC, for the period starting {target_for(moment):%H:%M} UTC", flush=True)
+    time.sleep(max((moment - pd.Timestamp.now(tz="UTC")).total_seconds(), 0))
+
+
 def run_forever() -> None:
-    """Decide, record and push every half hour until stopped with Ctrl+C."""
+    """Decide, record and push at :24 and :54 UTC until stopped with Ctrl+C.
+
+    It always waits for the next scheduled moment first, so a restart never decides early,
+    before the newest price has had its usual time to print.
+    """
     frozen = Frozen.load()
     print(f"live with model {frozen.sha256()[:12]}, frozen at {frozen.frozen_at}")
     while True:
+        _sleep_until(_next_run(pd.Timestamp.now(tz="UTC")))
         now = pd.Timestamp.now(tz="UTC")
         entries = read_ledger()
-        target = target_for(now).isoformat()
-        if not any(entry["target_start"] == target for entry in entries):
-            try:
-                entry = decide(now, fetch_recent(now), frozen, entries)
-                with DECISIONS.open("a") as ledger:
-                    ledger.write(json.dumps(entry) + "\n")
-                publish(
-                    [str(DECISIONS.relative_to(ROOT))],
-                    f"ledger: {entry['target_start']} decided at {entry['decided_at']}",
-                )
-                print(
-                    f"{entry['decided_at'][:16]}  {entry['target_start'][:16]}  p_short {entry['p_short']:.3f}  "
-                    f"action {entry['action']:+d}  soc {entry['soc_after']:.1f}"
-                )
-            except Exception as error:
-                print(f"{now:%H:%M} run failed, will retry next half hour: {error!r}", file=sys.stderr)
-        next_run = _next_run(pd.Timestamp.now(tz="UTC"))
-        print(
-            f"  next decision at {next_run:%H:%M} UTC, for the period starting {target_for(next_run):%H:%M}", flush=True
-        )
-        time.sleep(max((next_run - pd.Timestamp.now(tz="UTC")).total_seconds(), 1))
+        if any(entry["target_start"] == target_for(now).isoformat() for entry in entries):
+            continue
+        try:
+            entry = decide(now, fetch_recent(now), frozen, entries)
+            with DECISIONS.open("a") as ledger:
+                ledger.write(json.dumps(entry) + "\n")
+            publish(
+                [str(DECISIONS.relative_to(ROOT))], f"ledger: {entry['target_start']} decided at {entry['decided_at']}"
+            )
+            missing = [name for name, value in entry["inputs"].items() if value is None]
+            print(
+                f"{entry['decided_at'][:16]}  {entry['target_start'][:16]}  p_short {entry['p_short']:.3f}  "
+                f"action {entry['action']:+d}  soc {entry['soc_after']:.1f}"
+                + (f"  missing {missing}" if missing else "")
+            )
+        except Exception as error:
+            print(f"{now:%H:%M} run failed, will retry next half hour: {error!r}", file=sys.stderr)
 
 
 # ---------------------------------------------------------------- scoring
