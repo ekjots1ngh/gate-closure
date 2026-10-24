@@ -95,9 +95,15 @@ flowchart LR
 
 - **Pre-registered.** [`PROTOCOL.md`](PROTOCOL.md) fixed the question, baselines, battery, metrics and failure condition before any result existed. Every later change is a dated amendment saying what changed, why, and its effect, including the ones found by an independent code review.
 - **Held out.** July to 23 October 2026 is sealed. `python -m gclose.holdout` opens it once, after the freeze, with the walk-forward's own recipe, and refuses to run a second time.
-- **Live.** From the freeze, `python -m gclose.live run` decides every half hour and pushes each decision to [`ledger/decisions.jsonl`](ledger/) six minutes before that half hour's gate, once the newest price has normally printed. The frozen model is [plain JSON](ledger/model.json) with a SHA-256 of its contents, and every line carries that hash, so anyone can recompute any decision. GitHub's timestamps are the receipt.
+- **Live.** From the freeze, `python -m gclose.live run` decides every half hour and pushes each decision to [`ledger/decisions.jsonl`](ledger/) six minutes before that half hour's gate, once the newest price has normally printed. The frozen model is [plain JSON](ledger/model.json) with a SHA-256 of its contents, and every line carries that hash, so anyone can recompute any decision. GitHub's timestamps are the receipt. One line came from old code: the half hour from 18:30 UTC on 24 October was decided at 17:02 UTC by the first process, still running beside the fixed one ([amendment 8](PROTOCOL.md#amendments)), and it read the unprinted 17:00 period as long. The ledger is append-only, so the line stays; `python -m gclose.live score` leaves it out and says so.
 - **Known limitation.** From February 2024 Elexon serves each price as revised the next day, and the first print is not kept. In that era our price-based inputs use revised values that were not public at the gate (the timing rule itself is still enforced). We report both eras: before the switch, with clean first prints, ours beats the schedule by £9.4 a day and persistence by 0.0127 Brier; after it, by £2.7 and 0.0110.
 - **Reproducible.** The raw data is committed, so every number rebuilds offline. Two machines agree to the decimal on everything except the boosted model, which moves by up to £2 a day with floating-point differences in tree building.
+
+## Demo
+
+[`web/dist/index.html`](web/dist/index.html) is the whole demo in one file, data and fonts included: download it and open it in a browser, no install and no network needed. It replays one week of 2026 (the week with the widest range of prices, chosen without looking at the money) as the control room would have seen it. Prices print about 52 minutes after each half hour starts, the forecast's lamps light at each gate, the battery trades, and the wind map shows the forecast revisions the model saw. **Poison the future** (key P) replaces everything published after a cutoff with noise and shows that no decision before it moves. Below the replay, a slider scales the forecast's errors to show what skill is worth, and the live record is read straight from this repository.
+
+To rebuild it: `python -m gclose.export`, then `cd web && npm install && npm run build`.
 
 ## Reproduce
 
@@ -107,7 +113,7 @@ Python 3.11 or later, any OS. About three minutes from a clean clone, with no ne
 pip install -e ".[dev]"            # or: pip install -r requirements.txt
 make reproduce                     # or run the lines below in order
 
-python -m pytest -q                # 27 tests, about 15 s
+python -m pytest -q                # 28 tests, about 15 s
 python -m gclose.features          # gate-safe feature table from data/raw (12 s)
 python -m gclose.backtest          # walk-forward forecasts, Brier and log loss
 python -m gclose.price_models      # the boosted and ridge checks (1.5 min)
@@ -142,7 +148,7 @@ gclose/store.sql         a TimescaleDB sketch for the Tiger Data track (not used
 tests/                   the poison test with planted leaks; the optimiser against a scalar loop
 data/raw/                Elexon data, January 2022 to October 2026
 ledger/                  the frozen model and every live decision, as pushed
-web/                     demo (in progress)
+web/                     the demo: a replay at gate closure; dist/index.html is the built page
 ```
 
 ## Data
