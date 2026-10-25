@@ -10,11 +10,11 @@ Lower is better for both scores. The last column is ours minus each model, so ne
 
 | model | Brier [90% CI] | log loss | ours minus model, Brier |
 | :--- | ---: | ---: | ---: |
-| coin (long-run share short) | 0.2500 [0.2497, 0.2503] | 0.6931 | -0.0207 [-0.0224, -0.0189] |
-| persistence, raw 0/1 | 0.3873 [0.3826, 0.3925] | 1.5874 | -0.1580 [-0.1618, -0.1543] |
-| persistence, calibrated | 0.2409 [0.2399, 0.2421] | 0.6749 | -0.0117 [-0.0127, -0.0106] |
-| NESO indicated imbalance | 0.2468 [0.2460, 0.2476] | 0.6868 | -0.0175 [-0.0191, -0.0159] |
-| ours | 0.2293 [0.2276, 0.2311] | 0.6498 |  |
+| coin (long-run share short) | 0.2500 [0.2497, 0.2503] | 0.6931 | -0.0206 [-0.0222, -0.0188] |
+| persistence, raw 0/1 | 0.3871 [0.3825, 0.3924] | 1.5860 | -0.1577 [-0.1616, -0.1540] |
+| persistence, calibrated | 0.2412 [0.2401, 0.2423] | 0.6754 | -0.0117 [-0.0128, -0.0107] |
+| NESO indicated imbalance | 0.2468 [0.2460, 0.2476] | 0.6868 | -0.0174 [-0.0189, -0.0158] |
+| ours | 0.2294 [0.2277, 0.2312] | 0.6501 |  |
 
 The same forecasts, taken apart. Log loss in bits: a coin flip is exactly 1 bit, so 1 minus the number is
 the information a forecast extracts per half hour. Murphy's decomposition splits Brier into reliability
@@ -25,11 +25,11 @@ negative favours ours.
 
 | model | log loss, bits | reliability | resolution | Diebold-Mariano vs ours |
 | :--- | ---: | ---: | ---: | ---: |
-| coin (long-run share short) | 1.0000 | 0.0006 | 0.0001 | -19.0 (p < 0.0001) |
-| persistence, raw 0/1 | 2.2901 | 0.1469 | 0.0091 | -68.8 (p < 0.0001) |
-| persistence, calibrated | 0.9737 | 0.0006 | 0.0091 | -17.3 (p < 0.0001) |
+| coin (long-run share short) | 1.0000 | 0.0006 | 0.0001 | -18.9 (p < 0.0001) |
+| persistence, raw 0/1 | 2.2881 | 0.1468 | 0.0091 | -68.5 (p < 0.0001) |
+| persistence, calibrated | 0.9744 | 0.0006 | 0.0090 | -17.4 (p < 0.0001) |
 | NESO indicated imbalance | 0.9908 | 0.0011 | 0.0031 | -17.3 (p < 0.0001) |
-| ours | 0.9375 | 0.0003 | 0.0199 |  |
+| ours | 0.9379 | 0.0003 | 0.0197 |  |
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="reliability_dark.svg">
@@ -44,9 +44,9 @@ fading at the side's own persistence.
 | forecast | one step [90% CI] | chain [90% CI] |
 | :--- | ---: | ---: |
 | no forecast, fixed schedule | 42.9 [34.5, 51.8] | 42.9 [34.5, 51.8] |
-| ours, logistic | 46.0 [38.0, 53.9] | 48.3 [40.2, 56.4] |
-| boosted classifier | 46.3 [38.2, 54.9] | 50.0 [41.8, 58.7] |
-| calibrated persistence | 35.6 [28.1, 44.1] | 39.9 [31.8, 49.0] |
+| ours, logistic | 46.1 [38.2, 53.9] | 48.4 [40.2, 56.7] |
+| boosted classifier | 45.1 [37.0, 53.5] | 47.3 [39.2, 55.9] |
+| calibrated persistence | 35.8 [28.2, 44.3] | 39.8 [31.8, 49.1] |
 | NESO indicated imbalance | 27.0 [19.7, 35.4] | 31.8 [24.0, 40.5] |
 | knowing the side an hour early | 224.2 [204.2, 245.9] | 223.1 [203.1, 244.7] |
 
@@ -54,9 +54,9 @@ Price forecasts (one step) and the two ceilings:
 
 | policy | £ per day [90% CI] |
 | :--- | ---: |
-| price forecast, ridge | 19.7 [15.7, 24.1] |
-| price forecast, boosted | 23.6 [19.2, 28.0] |
-| last price seen | -8.8 [-14.6, -3.5] |
+| price forecast, ridge | 19.5 [15.6, 23.8] |
+| price forecast, boosted | 21.9 [17.7, 26.0] |
+| last price seen | -8.8 [-14.6, -3.4] |
 | knowing the price an hour early | 165.9 [151.5, 180.8] |
 | perfect hindsight, every price known | 344.7 [319.2, 371.0] |
 
@@ -67,14 +67,14 @@ spike check leaves out the top 1% of half hours by absolute price; the harsher c
 
 | forecast | gain [90% CI] | share of gap | without spike half hours | without top 1% of days |
 | :--- | ---: | ---: | ---: | ---: |
-| calibrated persistence (one step) | -7.31 [-11.26, -3.43] | -4.0 [-6.3, -1.9]% | -5.67 [-9.67, -1.69] | -9.66 [-16.43, -3.84] |
+| calibrated persistence (one step) | -7.16 [-11.24, -3.13] | -4.0 [-6.3, -1.7]% | -5.57 [-9.71, -1.44] | -9.98 [-16.77, -4.11] |
 | NESO indicated imbalance (one step) | -15.97 [-20.44, -11.76] | -8.8 [-11.6, -6.3]% | -12.29 [-16.55, -7.77] | -16.46 [-21.96, -11.12] |
-| ours, logistic (one step) | +3.08 [-1.61, +7.81] | 1.7 [-0.9, 4.2]% | +4.07 [-0.70, +9.10] | +0.22 [-6.28, +5.73] |
-| boosted classifier (one step) | +3.41 [-0.84, +7.75] | 1.9 [-0.5, 4.2]% | +3.69 [-0.65, +8.27] | +1.90 [-4.25, +7.47] |
-| calibrated persistence (chain) | -3.08 [-7.32, +1.27] | -1.7 [-4.1, 0.7]% | -1.87 [-5.87, +2.15] | -5.64 [-12.43, +0.41] |
+| ours, logistic (one step) | +3.20 [-1.46, +7.84] | 1.8 [-0.9, 4.3]% | +4.31 [-0.35, +9.40] | +0.33 [-6.18, +5.87] |
+| boosted classifier (one step) | +2.13 [-2.11, +6.52] | 1.2 [-1.2, 3.5]% | +2.36 [-1.60, +6.79] | -0.54 [-8.48, +5.57] |
+| calibrated persistence (chain) | -3.09 [-7.35, +1.25] | -1.7 [-4.2, 0.7]% | -1.88 [-5.87, +2.19] | -5.65 [-12.55, +0.51] |
 | NESO indicated imbalance (chain) | -11.13 [-15.16, -7.22] | -6.2 [-8.6, -4.0]% | -8.35 [-12.18, -4.38] | -11.36 [-16.21, -6.85] |
-| ours, logistic (chain) | +5.36 [+0.99, +9.65] | 3.0 [0.6, 5.2]% | +5.02 [+0.43, +9.75] | +2.14 [-4.05, +7.51] |
-| boosted classifier (chain) | +7.06 [+3.15, +11.22] | 3.9 [1.8, 6.0]% | +5.35 [+1.09, +9.66] | +5.62 [-0.19, +11.23] |
+| ours, logistic (chain) | +5.51 [+1.15, +9.81] | 3.1 [0.7, 5.3]% | +5.16 [+0.65, +9.87] | +2.28 [-4.03, +7.70] |
+| boosted classifier (chain) | +4.41 [+0.21, +8.69] | 2.5 [0.1, 4.8]% | +3.79 [-0.07, +7.81] | +1.59 [-6.56, +7.98] |
 
 ## By era
 
@@ -82,8 +82,8 @@ Until February 2024 the stored prices are first prints; after it, Elexon's next-
 
 | era | ours minus calibrated persistence, Brier | chain ours | schedule | gain |
 | :--- | ---: | ---: | ---: | ---: |
-| first prints, 2022-07 to 2024-01 | -0.0127 [-0.0143, -0.0111] | 60.2 | 50.8 | +9.37 [-0.29, +19.71] |
-| revised prices, 2024-02 to 2026-06 | -0.0110 [-0.0124, -0.0094] | 40.5 | 37.8 | +2.73 [-0.79, +5.93] |
+| first prints, 2022-07 to 2024-01 | -0.0129 [-0.0144, -0.0113] | 60.7 | 50.8 | +9.92 [+0.22, +20.31] |
+| revised prices, 2024-02 to 2026-06 | -0.0110 [-0.0124, -0.0095] | 40.4 | 37.8 | +2.61 [-0.90, +5.95] |
 
 ## Risk
 
@@ -94,14 +94,14 @@ row is the forecast's gain over the schedule, so its Sharpe ratio is an informat
 | :--- | ---: | ---: |
 | chain/schedule | 3.51 | 2,255 |
 | chain/ours | 4.59 | 1,331 |
-| chain/ours minus chain/schedule | 0.51 | 3,644 |
+| chain/ours minus chain/schedule | 0.53 | 3,629 |
 
 ## Is the side a Markov chain?
 
 The chain policy fades the forecast as a two-state Markov chain would: autocorrelation at lag h equal to
 the lag-1 value to the power h. The side's measured autocorrelation decays much more slowly, so the grid
 has longer memory than that. Fading with the measured memory instead earns
-£49.26 a day against £48.30. The
+£49.11 a day against £48.44. The
 simplification costs about a pound a day, so we report it and keep the protocol's policy rather than
 change it after seeing the results.
 
@@ -119,10 +119,10 @@ change it after seeing the results.
 
 | year | schedule | ours (chain) | persistence (chain) | NESO (chain) | knowing the side | hindsight |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 2022 | 65.9 | 84.9 | 71.0 | 50.2 | 574.8 | 788.6 |
-| 2023 | 45.9 | 51.3 | 37.3 | 29.0 | 294.8 | 399.6 |
-| 2024 | 30.7 | 29.6 | 25.6 | 18.5 | 134.5 | 234.7 |
-| 2025 | 43.9 | 48.0 | 38.6 | 32.9 | 129.8 | 244.3 |
+| 2022 | 65.9 | 85.8 | 70.2 | 50.2 | 574.8 | 788.6 |
+| 2023 | 45.9 | 51.7 | 37.5 | 29.0 | 294.8 | 399.6 |
+| 2024 | 30.7 | 29.5 | 25.8 | 18.5 | 134.5 | 234.7 |
+| 2025 | 43.9 | 47.8 | 38.6 | 32.9 | 129.8 | 244.3 |
 | 2026 | 36.5 | 43.5 | 44.6 | 43.5 | 88.6 | 208.1 |
 
 ## Value of skill
@@ -132,14 +132,14 @@ Our forecast errors scaled by k: k = 0 knows the side, k = 1 is our forecast, k 
 | k | Brier | one step, £/day | chain, £/day |
 | :--- | ---: | ---: | ---: |
 | 0.00 | 0.0000 | 224.2 | 223.1 |
-| 0.25 | 0.0143 | 220.1 | 213.9 |
-| 0.50 | 0.0573 | 193.0 | 182.1 |
+| 0.25 | 0.0143 | 220.1 | 213.8 |
+| 0.50 | 0.0574 | 193.0 | 182.0 |
 | 0.75 | 0.1290 | 131.5 | 126.6 |
-| 0.90 | 0.1857 | 86.2 | 84.5 |
-| 1.00 | 0.2293 | 46.0 | 48.3 |
-| 1.10 | 0.2774 | -1.9 | 7.8 |
-| 1.25 | 0.3575 | -74.8 | -58.6 |
-| 1.50 | 0.5005 | -203.0 | -174.3 |
+| 0.90 | 0.1858 | 86.4 | 85.0 |
+| 1.00 | 0.2294 | 46.1 | 48.4 |
+| 1.10 | 0.2776 | -2.0 | 7.7 |
+| 1.25 | 0.3577 | -75.0 | -59.6 |
+| 1.50 | 0.5010 | -202.7 | -174.9 |
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="value_of_skill_dark.svg">

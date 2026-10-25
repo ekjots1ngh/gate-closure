@@ -22,7 +22,15 @@ import time
 
 import pandas as pd
 
-from . import FIRST_PRINT_DELAY, GATE_LEAD, OUT, PERIODS_PER_DAY, PRICE_LAG_PERIODS, REFRESHED_AFTER
+from . import (
+    FIRST_PRINT_DELAY,
+    GATE_LEAD,
+    OUT,
+    PERIODS_PER_DAY,
+    PRICE_LAG_PERIODS,
+    REFRESHED_AFTER,
+    REVISED_PRICES_FROM,
+)
 from .ingest import DATASETS, load
 
 TS = "datetime64[ns, UTC]"  # one timestamp dtype everywhere: merge_asof refuses mixed resolutions
@@ -54,11 +62,13 @@ FEATURES = [
 def first_print_at(prices: pd.DataFrame) -> pd.Series:
     """When each price was first public: created_at if that is the first print, else the median delay.
 
+    Only from February 2024 is a late created_at a next-day revision rather than the first print;
+    before then a late created_at is a late first print, so the price really was not public sooner.
     A row with no created_at has not printed at all (the live record's placeholders for periods
     still to come), so it stays NaT and is never treated as public.
     """
     start, created = prices["start_time"].astype(TS), prices["created_at"].astype(TS)
-    refreshed = created - start >= REFRESHED_AFTER
+    refreshed = (created - start >= REFRESHED_AFTER) & (start >= REVISED_PRICES_FROM)
     return created.where(~refreshed, start + FIRST_PRINT_DELAY)
 
 
@@ -124,7 +134,8 @@ def build(prices: pd.DataFrame, windfor: pd.DataFrame, ndf: pd.DataFrame, imbaln
     day = p["price_newest"].rolling(PERIODS_PER_DAY, min_periods=PERIODS_PER_DAY // 2)
     p["price_day_mean"], p["price_day_std"] = day.mean(), day.std()
     side = p["short_newest"]
-    p["short_run_length"] = side.groupby((side != side.shift()).cumsum()).cumcount() + 1
+    run_length = side.groupby((side != side.shift()).cumsum()).cumcount() + 1
+    p["short_run_length"] = run_length.where(side.notna())  # no run is known while the side is unknown
 
     # A late cut to the wind forecast is the mechanism behind a short system, so the revision
     # (latest minus previous vintage) is the feature with a physical story. WINDFOR is hourly,
