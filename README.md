@@ -163,7 +163,7 @@ Python 3.11 or later, any OS. About three minutes from a clean clone, with no ne
 pip install -e ".[dev]"            # or: pip install -r requirements.txt
 make reproduce                     # or run the lines below in order
 
-python -m pytest -q                # 35 tests, about 15 s
+python -m pytest -q                # 36 tests, about 15 s
 python -m gclose.features          # gate-safe feature table from data/raw (12 s)
 python -m gclose.backtest          # walk-forward forecasts, Brier and log loss
 python -m gclose.price_models      # the boosted and ridge checks (1.5 min)

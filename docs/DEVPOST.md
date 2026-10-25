@@ -10,9 +10,9 @@ Every half hour the GB electricity system is either short of power or long, and 
 
 One hour before each half hour, Gate Closure forecasts whether the grid will be short or long, using only data that was public at that moment: the four-period-old price, and the newest wind, demand and NESO imbalance forecasts published strictly before the gate. A simulated 1 MW / 2 MWh battery then trades on the forecast through a dynamic programme. Everything is scored against a ladder of baselines (a coin, persistence, NESO's own forecast) and against two ceilings (knowing the side an hour early, knowing every price in advance), with intervals that resample whole weeks.
 
-Over four years of walk-forward testing (July 2022 to June 2026, refitted monthly, 70,120 half hours) the forecast scores Brier 0.2293 against 0.2409 for calibrated persistence and 0.2468 for NESO's forecast. The battery earns £48.3 a day with it against £42.9 on a fixed schedule, a gain of £5.4 a day [1.0, 9.7]. The number we are proudest of is the exchange rate: each 0.01 of Brier is worth £8 to £10 a day to this battery, and a coin-flip-quality forecast loses £13 to £19 a day against not forecasting at all. The first slice of skill only pays for the right to act.
+Over four years of walk-forward testing (July 2022 to June 2026, refitted monthly, 70,120 half hours) the forecast scores Brier 0.2294 against 0.2412 for calibrated persistence and 0.2468 for NESO's forecast. The battery earns £48.4 a day with it against £42.9 on a fixed schedule, a gain of £5.5 a day [1.2, 9.8]. The number we are proudest of is the exchange rate: each 0.01 of Brier is worth £8 to £10 a day to this battery, and a coin-flip-quality forecast loses £13 to £19 a day against not forecasting at all. The first slice of skill only pays for the right to act.
 
-The theme was time, so we also asked what an hour is worth. Rerunning the whole four-year test with the decision made 30 minutes before each half hour instead of 60, the forecast sharpens to Brier 0.220 and the battery earns £57.9 a day instead of £48.3: deciding half an hour later is worth £9.6 a day [6.8, 12.6]. NESO is currently weighing a 30-minute gate closure, so this is a measured input to a live policy question.
+The theme was time, so we also asked what an hour is worth. Rerunning the whole four-year test with the decision made 30 minutes before each half hour instead of 60, the forecast sharpens to Brier 0.220 and the battery earns £58.2 a day instead of £48.4: deciding half an hour later is worth £9.8 a day [7.1, 12.8]. NESO is currently weighing a 30-minute gate closure, so this is a measured input to a live policy question.
 
 ## How we built it
 
@@ -24,11 +24,11 @@ The maths is second- and third-year material used where it earns its place: prop
 
 Elexon changed what it serves in February 2024: prices now come as revised the next day, and the first print is not kept. We found this through an independent code review mid-hack, documented it as a known limitation, and report every result split by era. The same review found that the daily loss limit was acting on cash the battery could not yet know, and that the first version of the poison test could not fail. We fixed each in the open, as dated amendments to the pre-registration.
 
-The live record found its own bug in rehearsal: when the newest half hour had not printed, a placeholder row read as "long". We fixed it, added a test, moved the live decisions to six minutes before each gate so the newest price has normally printed, and left the one affected ledger line in place, listed and unscored. The ledger is never edited.
+The live record found its own bug in rehearsal: when the newest half hour had not printed, a placeholder row read as "long". We fixed it, added a test, moved the live decisions to six minutes before each gate so the newest price has normally printed, and left the affected ledger lines in place, listed and unscored. The ledger is never edited.
 
 ## Accomplishments that we're proud of
 
-A pre-registration written before the first result, with ten dated amendments. A poison test that replaces everything published after a cutoff with noise, with a cutoff one minute before every publication, and five planted leaks it must catch. A sealed holdout (July to October 2026), opened once after the freeze and reported in full: the forecast held (Brier 0.232 against 0.242 for persistence and 0.247 for NESO, passing the pre-registered test), but the money did not. Record price spreads made the fixed schedule earn £86 a day, and against a schedule that strong our own value-of-skill curve says a forecast needs Brier about 0.21 to pay. And a frozen model, plain JSON with a SHA-256, making a call every half hour from a laptop and pushing it to GitHub before the gate. Running it overnight found three real operational failures (a stale second process, a push collision, a laptop asleep mid-decision); each is listed line by line in the README and handled in code.
+A pre-registration written before the first result, with eleven dated amendments. A poison test that replaces everything published after a cutoff with noise, with a cutoff one minute before every publication, and five planted leaks it must catch. A sealed holdout (July to October 2026), opened once after the freeze and reported in full: the forecast held (Brier 0.232 against 0.242 for persistence and 0.247 for NESO, passing the pre-registered test), but the money did not. Record price spreads made the fixed schedule earn £86 a day, and against a schedule that strong our own value-of-skill curve says a forecast needs Brier about 0.21 to pay. And a frozen model, plain JSON with a SHA-256, making a call every half hour from a laptop and pushing it to GitHub before the gate. Running it overnight found three real operational failures (a stale second process, a push collision, a laptop asleep mid-decision); each is listed line by line in the README and handled in code.
 
 ## What we learned
 
@@ -36,7 +36,7 @@ Calibration is not the same as being useful. Our forecast is almost perfectly ca
 
 ## What's next
 
-Archive first prints ourselves, because the revised-price era costs £6.7 a day of measurable edge. Adopt the measured memory in the chain policy, pre-registered this time, for about £1 a day. Look for inputs that move P(short) away from 50/50, such as interconnector and plant outage notices. And keep the ledger running: the live record is the experiment that never ends.
+Archive first prints ourselves, because the revised-price era costs £7.3 a day of measurable edge. Adopt the measured memory in the chain policy, pre-registered this time, for about £1 a day. Look for inputs that move P(short) away from 50/50, such as interconnector and plant outage notices. And keep the ledger running: the live record is the experiment that never ends.
 
 ## Built with
 
