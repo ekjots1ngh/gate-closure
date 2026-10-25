@@ -76,7 +76,7 @@ export default function Skill({ r }: { r: Replay }) {
       <p className="slider-readout">
         <span className="big">{gbp(at.gbp)}</span>
         a day {real ? 'with our forecast' : 'with a hypothetical forecast'} at Brier {at.brier.toFixed(3)},{' '}
-        {gbp(Math.abs(at.gbp - schedule.value))} {at.gbp >= schedule.value ? 'more' : 'less'} than no forecast at all.
+        {gbp(Math.abs(at.gbp - schedule.value))} {at.gbp >= schedule.value ? 'more' : 'less'} than the fixed schedule.
       </p>
       <p className="note">
         Vertical bars are 90% intervals. A forecast pays for itself only below Brier {breakEven?.toFixed(3)}, the tick on

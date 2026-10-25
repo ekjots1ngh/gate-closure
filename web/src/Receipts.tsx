@@ -47,9 +47,10 @@ const parseLedger = (body: string): Decision[] => body.trim().split('\n').filter
 /** Each ledger commit's GitHub page and commit time, keyed by "target|decided_at" from its message. */
 const parseCommits = (body: string): Map<string, Commit> => {
   const commits = new Map<string, Commit>();
-  for (const c of JSON.parse(body) as { html_url: string; commit: { message: string; committer: { date: string } } }[]) {
+  // The author date is when the laptop committed the call; the committer date moves when a pull rebases it.
+  for (const c of JSON.parse(body) as { html_url: string; commit: { message: string; author: { date: string } } }[]) {
     const match = /^ledger: (\S+) decided at (\S+)/.exec(c.commit.message);
-    if (match) commits.set(`${match[1]}|${match[2]}`, { url: c.html_url, at: c.commit.committer.date });
+    if (match) commits.set(`${match[1]}|${match[2]}`, { url: c.html_url, at: new Date(c.commit.author.date).toISOString() });
   }
   return commits;
 };
@@ -71,7 +72,7 @@ export default function Receipts({ r, onPoison }: { r: Replay; onPoison: () => v
             <div><span className="check">{p.features_changed}</span><span className="label">inputs changed</span></div>
             <div><span className="check">{p.forecasts_changed}</span><span className="label">forecasts changed</span></div>
             <div><span className="check">{p.decisions_changed}</span><span className="label">decisions changed</span></div>
-            <div><span className="check soft">{p.later_rows_poisoned}</span><span className="label">later rows did change</span></div>
+            <div><span className="check soft">{p.later_rows_poisoned}</span><span className="label">rows after the cutoff did change</span></div>
           </div>
           <p className="note">
             The test suite repeats it with a cutoff before every publication, and plants five leaks to prove it can fail.
@@ -101,42 +102,51 @@ function LiveRecord() {
   const clean = (rows?.filter((row) => !preFix(row)) ?? []).filter(
     (row, i, all) => all.findIndex((other) => other.target_start === row.target_start) === i,
   );
-  const folded = (rows?.length ?? 0) - clean.length;
+  const oldCode = rows?.filter(preFix).length ?? 0;
+  const copies = (rows?.length ?? 0) - oldCode - clean.length;
   const recent = clean.slice(-SHOWN_ROWS).reverse();
+  const committedAt = (row: Decision) => commits.data?.get(`${row.target_start}|${row.decided_at}`)?.at;
+  const inTime = (row: Decision) => Date.parse(committedAt(row) ?? row.decided_at) < Date.parse(row.gate);
+  const counted = clean.filter(inTime).length;
+  const trades = clean.filter((row) => row.action !== 0).length;
 
   return (
     <div className="inset receipt">
       <h2>The live record</h2>
       <p className="proves">Proves each call was made before anyone could know the answer.</p>
       <p>
-        The model was frozen on Saturday afternoon. Since then a laptop makes the call for every half hour and pushes it
-        to GitHub six minutes before that half hour's gate.
+        The model was frozen on Saturday afternoon. Since then a laptop makes the call for each half hour six minutes
+        before its gate and commits it to GitHub. A call counts only if it was committed before its gate.
       </p>
       {ledger.failed && !rows && <p className="note">GitHub is out of reach from here; the record is in ledger/decisions.jsonl.</p>}
       {rows && (
         <>
           <p className="live-line">
-            <span className="live-lamp" /> {clean.length} calls since the freeze, the latest for {recent[0]?.target_start.slice(11, 16) ?? 'none'} UTC
+            <span className="live-lamp" /> {clean.length} calls since the freeze, {counted} committed in time; the latest for{' '}
+            {recent[0]?.target_start.slice(11, 16) ?? 'none'} UTC. {trades === 0 ? 'The battery started empty and has held so far.' : `${trades} trades so far.`}
           </p>
           <table className="ledger-table">
-            <thead><tr><th>half hour, UTC</th><th>called</th><th>trade</th><th>decided</th><th>on GitHub</th><th>before the gate</th></tr></thead>
+            <thead><tr><th>half hour, UTC</th><th>called</th><th>trade</th><th>decided</th><th>committed</th><th>before the gate</th></tr></thead>
             <tbody>
               {recent.map((row) => {
                 const commit = commits.data?.get(`${row.target_start}|${row.decided_at}`);
                 const lead = (Date.parse(row.gate) - Date.parse(commit?.at ?? row.decided_at)) / 60_000;
                 return (
-                  <tr key={`${row.target_start}|${row.decided_at}`}>
+                  <tr key={`${row.target_start}|${row.decided_at}`} className={inTime(row) ? undefined : 'late'}>
                     <td>{row.target_start.slice(5, 16).replace('T', ' ')}</td>
                     <td>{side(row.p_short)} {sure(row.p_short)}%</td>
                     <td>{verb(row.action)}</td>
                     <td>{row.decided_at.slice(11, 16)}</td>
                     <td>{commit ? <a href={commit.url} target="_blank" rel="noreferrer">{commit.at.slice(11, 16)}</a> : 'on GitHub'}</td>
-                    <td>{lead.toFixed(0)} min</td>
+                    <td>{lead > 0 ? `${lead.toFixed(0)} min` : `after the gate, not counted`}</td>
                   </tr>
                 );
               })}
-              {folded > 0 && (
-                <tr className="folded"><td colSpan={6}>{folded} earlier lines from the process running the code before the fix, kept unedited and not scored</td></tr>
+              {oldCode + copies > 0 && (
+                <tr className="folded"><td colSpan={6}>
+                  Not shown, kept unedited and not counted: {oldCode} calls from a process still running the code before the fix
+                  {copies > 0 ? `, and ${copies} duplicate${copies > 1 ? 's' : ''} from two processes running at once` : ''}
+                </td></tr>
               )}
             </tbody>
           </table>

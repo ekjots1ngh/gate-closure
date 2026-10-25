@@ -17,35 +17,36 @@ export interface Step {
   card: 'left' | 'right';   // which side the card sits, clear of what the step lights up
 }
 
-// Tuesday 23 June: at the 18:00 gate the model calls 19:00 short; 19:00 prints £789 and the battery sells into it.
-const TUESDAY_18 = 42 * HOUR + 2 * MINUTE;
-const TUESDAY_20 = 44 * HOUR + 2 * MINUTE;   // the 20:00 gate, when 19:00 has just printed
+// Tuesday 23 June: at the 19:00 gate the model calls 20:00 short while NESO's forecast leans long;
+// 20:00 prints £550, and our battery sells into it after the fixed schedule's has already emptied.
+const TUESDAY_19 = 43 * HOUR + 2 * MINUTE;
+const TUESDAY_21 = 45 * HOUR + 2 * MINUTE;   // the 21:00 gate, when 20:00 has just printed
 
 export const STEPS: Step[] = [
   {
     title: 'Short or long',
     body: 'Every half hour, Britain’s grid ends up short of power (amber: prices high) or long (blue: prices low). This strip is what actually happened.',
-    at: TUESDAY_18, region: 'gate', chart: 'outcome', card: 'left',
+    at: TUESDAY_19, region: 'gate', chart: 'outcome', card: 'left',
   },
   {
     title: 'What the model knows',
-    body: 'At 18:00 it may only use what was public at 18:00: the newest printed price, and the wind, demand and NESO forecasts as published.',
-    at: TUESDAY_18, region: 'map', chart: null, card: 'right',
+    body: 'At 19:00 it may only use what was public at 19:00: the newest printed price, and the wind, demand and NESO forecasts as published.',
+    at: TUESDAY_19, region: 'map', chart: null, card: 'right',
   },
   {
     title: 'The call',
-    body: 'The rules lock every position an hour ahead. So at 18:00 the model calls 19:00: short, 61% sure. The battery will sell.',
-    at: TUESDAY_18, region: 'gate', chart: 'call', card: 'left',
+    body: 'Positions lock an hour ahead, so at 19:00 the model calls 20:00: short, 61% sure. NESO’s own forecast leans long. Our battery will sell.',
+    at: TUESDAY_19, region: 'gate', chart: 'call', card: 'left',
   },
   {
-    title: 'The hour between deciding and knowing',
-    body: 'Nobody learns 19:00’s price until about 52 minutes into it. The call has to survive this shaded hour.',
-    at: TUESDAY_18, region: 'gate', chart: 'band', card: 'left',
+    title: 'Locked',
+    body: 'Past the gate nothing can change. 20:00 is an hour away, and its price is only published at about 20:52. The call has to hold that long.',
+    at: TUESDAY_19, region: 'gate', chart: 'band', card: 'left',
   },
   {
     title: 'The price arrives',
-    body: '19:00 printed £789: the grid was short, as called. The battery sold 1 MW into it and made £333 in half an hour.',
-    at: TUESDAY_20, region: 'gate-battery', chart: 'price', card: 'left',
+    body: '20:00 printed £550: short, as called. The schedule’s battery was already empty; ours sold 1 MW into it for £231 the schedule could not make.',
+    at: TUESDAY_21, region: 'gate-battery', chart: 'price', card: 'left',
   },
   {
     title: 'Could we have peeked?',
@@ -53,9 +54,9 @@ export const STEPS: Step[] = [
     poison: true, region: 'gate', chart: null, card: 'left',
   },
   {
-    title: 'Four years of this',
-    body: 'Over four years the forecast beats NESO’s own and is worth £5.4 a day to this battery; decided 30 minutes later, £15. The evidence is below.',
-    at: TUESDAY_18, region: 'gate', chart: null, card: 'left',
+    title: 'Four years, and four sealed months',
+    body: 'Over four years: Brier 0.229 against NESO’s 0.247, and £5.5 a day over a fixed schedule. On four sealed months since, the skill held; the money did not.',
+    at: TUESDAY_19, region: 'gate', chart: null, card: 'left',
   },
 ];
 

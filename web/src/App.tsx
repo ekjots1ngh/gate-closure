@@ -127,7 +127,7 @@ export default function App() {
             </div>
             <p className="four-years">
               Four years out of sample: Brier <b>{brier('ours').value.toFixed(3)}</b> against {brier('persistence_cal').value.toFixed(3)} for
-              persistence and {brier('indicated').value.toFixed(3)} for NESO; <b>{gbp(ours, 1)}</b> a day against {gbp(schedule, 1)} with no forecast.
+              persistence and {brier('indicated').value.toFixed(3)} for NESO; <b>{gbp(ours, 1)}</b> a day against {gbp(schedule, 1)} for a fixed schedule. Sealed July to October 2026: the skill held, the money did not.
             </p>
           </div>
         </header>
@@ -160,7 +160,7 @@ export default function App() {
           <p className="lede">
             July 2022 to June 2026, 70,120 half hours, refitted every month on what was public at the time.
             The forecast is clearly better than both baselines, and calibrated, but rarely confident: that is why it is worth
-            only about £5 a day.
+            only about £5 a day over a fixed schedule.
           </p>
           <Reliability r={R} />
           <Skill r={R} />

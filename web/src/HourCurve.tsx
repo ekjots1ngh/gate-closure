@@ -6,7 +6,7 @@ import { useWidth } from './useSize';
 const HEIGHT = 260;
 const RULE = 60;   // today's gate closure, minutes before the half hour
 
-/** The four-year study rerun at four decision times: what the battery gains over no forecast at each. */
+/** The four-year study rerun at four decision times: what the battery gains over the fixed schedule at each. */
 export default function HourCurve({ r }: { r: Replay }) {
   const leads = [...(r.value_of_time ?? [])].sort((a, b) => b.minutes - a.minutes);   // 120 first: time runs left to right
   const [chosen, setChosen] = useState(RULE);
@@ -23,7 +23,7 @@ export default function HourCurve({ r }: { r: Replay }) {
   return (
     <>
       <div className="inset" ref={ref}>
-        <h2>The battery’s edge over no forecast, by when the call is made</h2>
+        <h2>The battery’s edge over a fixed schedule, by when the call is made</h2>
         <svg width={width} height={HEIGHT} role="img" aria-label="Gain over the schedule against minutes before the half hour">
           {y.ticks(5).map((v) => (
             <g key={v}>
@@ -31,7 +31,7 @@ export default function HourCurve({ r }: { r: Replay }) {
               <text x={m.left - 6} y={y(v) + 4} textAnchor="end">{v > 0 ? '+' : ''}{gbp(v)}</text>
             </g>
           ))}
-          <text x={width - m.right} y={y(0) - 6} textAnchor="end">no forecast</text>
+          <text x={width - m.right} y={y(0) - 6} textAnchor="end">fixed schedule</text>
           <line x1={x(RULE)!} x2={x(RULE)!} y1={m.top - 10} y2={HEIGHT - m.bottom} stroke="var(--ink-faint)" strokeDasharray="3 4" />
           <text x={x(RULE)! + 6} y={m.top - 2}>today’s gate closure</text>
           <path d={line} fill="none" stroke="var(--ink)" strokeWidth={2} />
@@ -61,14 +61,14 @@ export default function HourCurve({ r }: { r: Replay }) {
         <div className="figures">
           <div><span className="big">{at.brier.ours.toFixed(3)}</span><span className="label">Brier score</span></div>
           <div><span className="big">{gbp(at.ours_gbp, 1)}</span><span className="label">a day</span></div>
-          <div><span className="big">{at.gain.value >= 0 ? '+' : '−'}{gbp(Math.abs(at.gain.value), 1)}</span><span className="label">over no forecast, [{num(at.gain.lo, 1)}, {num(at.gain.hi, 1)}]</span></div>
+          <div><span className="big">{at.gain.value >= 0 ? '+' : '−'}{gbp(Math.abs(at.gain.value), 1)}</span><span className="label">over the schedule, [{num(at.gain.lo, 1)}, {num(at.gain.hi, 1)}]</span></div>
         </div>
         <p className="hour-say">
           {chosen === RULE
             ? 'Today’s rule: positions lock an hour before each half hour.'
             : chosen < RULE
               ? `Deciding ${RULE - chosen} minutes later sharpens the call from ${rule.brier.ours.toFixed(3)} to ${at.brier.ours.toFixed(3)} and is worth ${gbp(at.ours_gbp - rule.ours_gbp, 1)} a day more.`
-              : `Deciding ${chosen - RULE} minutes earlier blunts the call to ${at.brier.ours.toFixed(3)}; the edge over no forecast is gone.`}
+              : `Deciding ${chosen - RULE} minutes earlier blunts the call to ${at.brier.ours.toFixed(3)}; the edge over the schedule is gone.`}
         </p>
         <p className="note">
           Every timing rule in the code is one constant, so the whole four-year test reruns at each decision time, with the

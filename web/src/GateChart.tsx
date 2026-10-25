@@ -102,11 +102,11 @@ export default function GateChart({ r, d, now, poison, noiseSeed, focus }: Props
             <text x={M.left - 8} y={y(v) + 4} textAnchor="end">{v}</text>
           </g>
         ))}
-        <text x={M.left - 8} y={M.top - 8} textAnchor="end">£/MWh</text>
+        <text x={M.left - 8} y={M.top - 8} textAnchor="end">{spiky ? '£/MWh, log scale' : '£/MWh'}</text>
 
         {/* The hour between deciding and knowing, and the period just decided. */}
         <rect x={x(gate)} y={M.top - 4} width={x(target) - x(gate)} height={stripTop + STRIP + 4 - M.top} fill="var(--ink)" opacity={0.055} />
-        <text x={(x(gate) + x(target)) / 2} y={M.top - 8} textAnchor="middle">the hour between deciding and knowing</text>
+        <text x={(x(gate) + x(target)) / 2} y={M.top - 8} textAnchor="middle">locked: the hour before delivery</text>
         {decidedRow && !poison && (
           <g>
             <rect x={x(target)} y={M.top - 4} width={x(target + PERIOD_MS) - x(target)} height={stripTop + STRIP + 4 - M.top}

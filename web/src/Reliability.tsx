@@ -24,6 +24,7 @@ export default function Reliability({ r }: { r: Replay }) {
   const h = d3.scaleLinear().domain([0, d3.max(bins, (b) => b.count / total)!]).range([0, HIST]);
   const pct = (v: number) => `${Math.round(v * 100)}%`;
   const line = d3.line<{ forecast: number; observed: number }>().x((b) => x(b.forecast)).y((b) => y(b.observed));
+  const confident = bins.reduce((best, b) => (Math.abs(b.forecast - 0.75) < Math.abs(best.forecast - 0.75) ? b : best));
   const middle = d3.sum(bins.filter((b) => b.forecast > 0.3 && b.forecast < 0.7), (b) => b.count) / total;
 
   return (
@@ -72,7 +73,7 @@ export default function Reliability({ r }: { r: Replay }) {
         <text x={x(1) + 22} y={histTop + HIST - 4}>how often ours says each</text>
       </svg>
       <p className="note">
-        Where it says 74%, the grid was short 72% of the time: it means what it says. But {pct(middle)} of its calls sit
+        Where it says {pct(confident.forecast)}, the grid was short {pct(confident.observed)} of the time: it means what it says. But {pct(middle)} of its calls sit
         between 30% and 70%, and a call that rarely strays from even money is worth little to a battery.
       </p>
     </div>

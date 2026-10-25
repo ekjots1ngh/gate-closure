@@ -205,6 +205,7 @@ svg .figure { fill: var(--ink); }
 .ledger-table th { text-align: left; color: var(--ink-faint); font-weight: 400; padding: 3px 6px; border-bottom: 1px solid var(--rule); }
 .ledger-table td { padding: 3px 6px; border-bottom: 1px solid #323c37; font-variant-numeric: tabular-nums; }
 .ledger-table .folded td { color: var(--ink-faint); font-style: italic; }
+.ledger-table .late td { color: var(--ink-faint); }
 .live-line { display: flex; align-items: center; gap: 8px; color: var(--ink-soft); font-size: 13px; margin: 0 0 8px; }
 .live-lamp { width: 8px; height: 8px; border-radius: 50%; background: var(--short); }
 
