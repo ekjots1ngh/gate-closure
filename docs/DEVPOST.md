@@ -20,7 +20,23 @@ The theme was time, so we also asked what an hour is worth. Rerunning the whole 
 
 Python, pandas, numpy and scikit-learn, with React and d3 for the demo. Elexon's public Insights API supplies prices, imbalance volumes and every forecast vintage; the raw data is committed as 232 monthly parquet files so every number rebuilds offline in about five minutes. Features are built with one point-in-time as-of join per dataset, strictly before the gate, and prices are used only once they have printed. The forecast is a logistic regression on 16 inputs, refitted monthly on outcomes that were public at that month's first gate. The battery is a Bellman dynamic programme over state of charge, vectorised across all 70,120 half hours, with the same optimiser used for every forecast and for the ceilings, so a difference in money is the forecast's doing.
 
-The maths is second- and third-year material used where it earns its place: proper scoring rules, Murphy's decomposition, a week-block bootstrap with paired intervals, the Diebold-Mariano test with Newey-West variance, the law of total expectation and certainty equivalence, backward induction, a two-state Markov chain to carry the forecast forward, the expected value of information, and Sharpe and information ratios. Each one has a number next to it in the README.
+Four equations carry the project. The forecast is scored by the Brier score, a proper scoring rule, where $p_t$ is the probability of short and $y_t$ is 1 if the grid was short:
+
+$$\text{Brier} = \frac{1}{N}\sum_{t=1}^{N} (p_t - y_t)^2$$
+
+By the law of total expectation, the battery needs only one number per half hour, the expected price:
+
+$$\mathbb{E}[\pi_t] = p_t\,\mathbb{E}[\pi_t \mid \text{short}] + (1 - p_t)\,\mathbb{E}[\pi_t \mid \text{long}]$$
+
+The battery values every state of charge $s$ by backward induction and re-plans at each gate:
+
+$$V_t(s) = \max_{a}\Big[\, r_t(a) + V_{t+1}\big(s'(s, a)\big) \Big]$$
+
+And to price skill, each forecast is pulled towards the truth or pushed away from it, then traded by the same optimiser. Here $k = 0$ is knowing the side and $k = 1$ is our forecast:
+
+$$p_t^{(k)} = \operatorname{clip}\big(y_t + k\,(p_t - y_t)\big)$$
+
+The rest is second- and third-year material used where it earns its place: Murphy's decomposition, a week-block bootstrap with paired intervals, the Diebold-Mariano test with Newey-West variance, a two-state Markov chain to carry the forecast forward, the expected value of information, and Sharpe and information ratios. Each one has a number next to it in the README.
 
 ## Challenges we ran into
 
@@ -36,7 +52,7 @@ A pre-registration written before the first result, with twelve dated amendments
 
 Calibration is not the same as being useful. Our forecast is almost perfectly calibrated (reliability 0.0003) but rarely strays far from 50/50, and resolution is what the battery pays for. Also: the limit was the information, not the estimator. Boosted trees beat the logistic model on Brier and roughly tied it on money over four years (they did better on the sealed months), and the side oracle, £223 a day, shows the size of the gap nobody at the gate can see.
 
-## What's next
+## What's next for Gate Closure
 
 Archive first prints ourselves, so the clean-data test can run past February 2024. Adopt the measured memory in the chain policy, pre-registered this time, for about £1 a day. Look for inputs that move P(short) away from 50/50, such as interconnector and plant outage notices. And keep the ledger running: the live record is the experiment that never ends.
 

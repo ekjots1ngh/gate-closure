@@ -143,6 +143,8 @@ All times UTC. GitHub's push time comes from the repository's activity log, whic
 | 25 Oct 07:00 | 06:00 | none | none | no call: the laptop was restarting to load amendment 11's fixes |
 | 25 Oct 07:30 to 10:00 | 06:30 to 09:00 | six minutes before each gate | within a minute of deciding | yes |
 
+Scored at 10:19 UTC on Sunday (`python -m gclose.live score`, [ledger/score.json](ledger/score.json)): 9 half hours from Saturday 18:00 to Sunday 09:00, every line decided before its gate, 4 of 9 sides right, Brier 0.33. The grid was short in all nine, and the model, which rarely strays far from 50/50, leaned long through most of that spell. The battery never traded, so the live money is £0, as it is for the schedule over the same span. Nine correlated half hours say nothing about skill.
+
 The gap from 21:30 on Saturday to 06:00 on Sunday is the laptop asleep. Running it for a day proved the machinery (the frozen model, the six-minute lead, the receipts) and found three real operational failures, each now handled in code. It says nothing yet about skill; that takes months of lines.
 
 ## Fine print
