@@ -72,8 +72,9 @@ export default function HourCurve({ r }: { r: Replay }) {
         </p>
         <p className="note">
           Every timing rule in the code is one constant, so the whole four-year test reruns at each decision time, with the
-          poison test passing at every one. NESO’s 2026 consultation recorded calls to move gate closure to 30 minutes. An
-          analysis added after the results, and labelled as one.
+          poison test passing at every one. In NESO’s 2026 call for input on balancing reform, many respondents asked for a
+          shorter gate closure; NESO judged under an hour not yet feasible. This prices that question. An analysis added
+          after the results, and labelled as one.
         </p>
       </div>
     </>

@@ -33,7 +33,8 @@ export default function Receipts({ r, onPoison }: { r: Replay; onPoison: () => v
           <p>
             July to 23 October 2026 was sealed until after the freeze, then opened once with the frozen recipe. The
             forecast held: Brier 0.232 against 0.242 for persistence and 0.247 for NESO, passing the test written before
-            any result. The money did not: record price spreads made the fixed schedule earn £86 a day, and ours £72.
+            any result. The money did not: the fixed schedule had an unusually strong summer, £86 a day against its four-year £42.9,
+            and ours made £72.
           </p>
         </div>
       </div>

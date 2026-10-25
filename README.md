@@ -6,7 +6,7 @@
 
 **Live demo: [ekjots1ngh.github.io/gate-closure](https://ekjots1ngh.github.io/gate-closure/)**, with this morning's live calls at the top and a week replayed at the gate below.
 
-Every half hour the GB electricity system is either short of power or long. Whoever is on the wrong side pays the imbalance price, which nobody knows until about twenty minutes after the half hour ends. One hour before each half hour, at gate closure, we forecast which side the grid will be on, using only data that was public at that moment. A simulated 1 MW / 2 MWh battery trades on the forecast.
+Every half hour the GB electricity system is either short of power or long. Whoever is on the wrong side pays the imbalance price, which nobody knows until about twenty minutes after the half hour ends. One hour before each half hour, at gate closure, we forecast which side the grid will be on, using only data published by that moment (one caveat, on revised prices, is under Receipts). A simulated 1 MW / 2 MWh battery trades on the forecast.
 
 Built in 24 hours at OxHack '26 (Oxford, 24 to 25 October 2026) for HRT's challenge: *best use of data for predictions and decision making*. The theme of the hack was time; this project is about the one hour between deciding and knowing.
 
@@ -15,28 +15,28 @@ Built in 24 hours at OxHack '26 (Oxford, 24 to 25 October 2026) for HRT's challe
 Walk-forward over four years (July 2022 to June 2026, refitted monthly, 70,120 half hours), with 90% intervals from resampling whole weeks:
 
 - **The forecast is clearly better than the baselines.** Our probability of a short system scores Brier 0.2294. Calibrated persistence scores 0.2412 and NESO's own published imbalance forecast 0.2468. Paired over the same weeks, ours is better by 0.0117 [0.0107, 0.0128].
-- **It is worth a little money, and we can say exactly how much.** The battery earns £42.9 a day on a fixed daily schedule and £48.4 with our forecast: a gain of £5.5 a day [1.2, 9.8]. Persistence and NESO's forecast both lose money against the schedule.
-- **There is an exchange rate between accuracy and money.** Scale the forecast's errors up or down and the money moves almost linearly: £8 to £10 a day per 0.01 of Brier. The line crosses the no-forecast schedule at about Brier 0.236. Trading on a coin-flip-quality forecast loses £13 to £19 a day against simply not forecasting. So the first slice of skill only pays for the right to act on a forecast at all. That is why a clearly better forecast earns only £5.5 more. In the language of forecast verification, ours is almost perfectly calibrated but has low resolution: it rarely strays far from 50/50.
+- **It is worth a little money, and we can say exactly how much.** The battery earns £42.9 a day on a fixed daily schedule and £48.4 with our forecast: a gain of £5.5 a day [1.2, 9.8]. NESO's forecast loses money against the schedule, and calibrated persistence does no better than it.
+- **There is an exchange rate between accuracy and money.** Scale the forecast's errors up or down and the money moves almost linearly: £8 to £10 a day per 0.01 of Brier. The line crosses the no-forecast schedule at about Brier 0.236. Scaled to coin-flip accuracy, our forecast would lose about £12 to £18 a day against simply not forecasting (a forecast that only ever quotes the base rate takes the schedule's own actions, so it loses nothing). So the first slice of skill only pays for the right to act on a forecast at all. That is why a clearly better forecast earns only £5.5 more. In the language of forecast verification, ours is almost perfectly calibrated but has low resolution: it rarely strays far from 50/50.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/value_of_skill_dark.svg">
   <img alt="Money per day against Brier score: a nearly straight line from coin-flip accuracy to perfect knowledge of the side, with ours, calibrated persistence and NESO's forecast sitting on it" src="docs/value_of_skill_light.svg">
 </picture>
 
-For scale, knowing the side of every half hour an hour early would earn £223 a day, and knowing every price in advance £345. A boosted-tree classifier beats our logistic model on Brier (0.2266) but not on money (£47.4 a day against £48.4; it moves by up to £2 between machines), so the simple model ships. Forecasting the price directly earns less than the fixed schedule.
+For scale, knowing the side of every half hour an hour early would earn £223 a day, and knowing every price in advance £345. A boosted-tree classifier beats our logistic model on Brier (0.2266) and roughly ties it on money over the four years (£47.3 a day against £48.4); on the sealed months it did better (£85.5 against £71.9). The pre-registered logistic model ships, and both are reported. Forecasting the price directly earns less than the fixed schedule.
 
 Every table, interval and robustness check is in [docs/RESULTS.md](docs/RESULTS.md), generated from the pipeline's output.
 
 ## Out of sample: the sealed holdout
 
-July to 23 October 2026 was sealed until after the freeze and opened once, with the walk-forward's own recipe ([docs/HOLDOUT.md](docs/HOLDOUT.md), 5,520 half hours):
+July to 23 October 2026 was sealed until after the freeze and opened once, with the recipe as it stood that evening ([docs/HOLDOUT.md](docs/HOLDOUT.md), 5,520 half hours; [amendment 11](PROTOCOL.md#amendments)'s later fix touches only pre-2024 training rows):
 
 - **The forecast held.** Ours scores Brier 0.2319, against 0.2417 for calibrated persistence and 0.2466 for NESO's forecast. The pre-registered failure condition was that ours would not beat persistence outside the 90% interval; it does, by 0.0097 [0.0059, 0.0144].
-- **The money did not.** In these months the fixed schedule earned £86.0 a day, twice its four-year average, as price spreads hit records. With our forecast the battery earned £71.9: a loss of £14.1 a day [4.1, 25.7] against the schedule. The value-of-skill curve says why: against a schedule that strong, a forecast needs Brier about 0.21 to pay, and ours is 0.232. The skill was real; this summer it was not enough.
+- **The money did not.** In these months the fixed schedule earned £86.0 a day, twice its four-year average. With our forecast the battery earned £71.9: a loss of £14.1 a day [4.1, 25.7] against the schedule. The value-of-skill curve says why: against a schedule that strong, a forecast needs Brier about 0.21 to pay, and ours is 0.232. The skill was real; this summer it was not enough.
 
 ## What is an hour worth?
 
-Gate closure is fixed at an hour by the market's rules, and NESO's 2026 consultation on balancing reform recorded calls to move it to 30 minutes. Every timing rule here is one constant, so [`gclose/latency.py`](gclose/latency.py) reruns the four-year walk-forward with the decision 30, 60, 90 and 120 minutes before each half hour, moving the newest visible price with the gate, and runs the poison check at every lead (all pass; the 60-minute run reproduces the headline to every digit).
+Gate closure is fixed at an hour by the market's rules, and in NESO's 2026 call for input on balancing reform many respondents asked for a shorter one; NESO judged under an hour not yet feasible, though its dispatch reform work may explore it. Every timing rule here is one constant, so [`gclose/latency.py`](gclose/latency.py) reruns the four-year walk-forward with the decision 30, 60, 90 and 120 minutes before each half hour, moving the newest visible price with the gate, and runs the poison check at every lead (all pass; the 60-minute run reproduces the headline to every digit).
 
 | decided before the half hour | 120 min | 90 min | **60 min (the rule)** | 30 min |
 | :--- | ---: | ---: | ---: | ---: |
@@ -63,8 +63,8 @@ Deciding half an hour later is worth £9.8 a day more to this battery [7.1, 12.8
 | Dynamic programming: Bellman equation, backward induction | Algorithms, optimisation | Values every state of charge and re-plans each half hour (model predictive control) | Vectorised over 70,120 half hours: the whole study runs in seconds |
 | Two-state Markov chain | 2nd-year probability | Carries the forecast forward, fading at the side's own persistence | Tested, and too simple: the grid's memory decays more slowly than geometric. Fixing it is worth about £1 a day |
 | Expected value of information | Decision theory | Prices accuracy in pounds, with two ceilings | £8 to £10 a day per 0.01 of Brier; knowing the side £223 a day, hindsight £345 |
-| Sharpe ratio, information ratio, drawdown | Finance | Risk-adjusted view of the gain over the schedule | Information ratio 0.53 a year: real, but noisy |
-| Point-in-time as-of joins (a sorted merge), walk-forward testing | Algorithms, quant practice | No input is ever used before it was public | Poison check on a real week: 0 of 170 decisions change |
+| Sharpe ratio, information ratio, drawdown | Finance | Risk-adjusted view of the gain over the schedule | Information ratio 0.53 a year on daily P&L, 1.06 on weekly: a battery's cash moves between days (daily gains have lag-one autocorrelation −0.65) |
+| Point-in-time as-of joins (a sorted merge), walk-forward testing | Algorithms, quant practice | No input is used before its publication time | Poison check on a real week: 0 of 170 decisions change |
 | Mutation testing | Software engineering | Proves the leak test can actually fail | 5 leaks planted, 5 caught |
 
 <picture>
@@ -86,7 +86,7 @@ Deciding half an hour later is worth £9.8 a day more to this battery [7.1, 12.8
      wind, demand and NESO forecasts                           newest version published strictly before T-60
 ```
 
-Everything in the project bends around this picture. A feature is either provably public at the gate or it does not exist.
+Everything in the project bends around this picture. A feature is either provably published before the gate or it does not exist (for prices after February 2024 the value is Elexon's later revision; see Receipts).
 
 ## Architecture
 
@@ -122,12 +122,12 @@ flowchart LR
 ## Honesty
 
 - **Pre-registered.** [`PROTOCOL.md`](PROTOCOL.md) fixed the question, baselines, battery, metrics and failure condition before any result existed. Every later change is a dated amendment saying what changed, why, and its effect, including the ones found by an independent code review.
-- **Held out.** July to 23 October 2026 was sealed. `python -m gclose.holdout` opened it once, after the freeze, with the walk-forward's own recipe, and refuses to run a second time. It was opened on Saturday evening rather than Sunday morning ([amendment 9](PROTOCOL.md#amendments)); the result is above, including the part that went against us.
-- **Live.** From the freeze, `python -m gclose.live run` decides every half hour and pushes each decision to [`ledger/decisions.jsonl`](ledger/) six minutes before that half hour's gate, once the newest price has normally printed. The frozen model is [plain JSON](ledger/model.json) with a SHA-256 of its contents, and every line carries that hash, so anyone can recompute any decision. GitHub's timestamps are the receipt. Some lines came from old code: after the fix in [amendment 8](PROTOCOL.md#amendments) the first process kept running beside the fixed one for a while (from the 18:30 UTC half hour on 24 October), reading the unprinted newest period as long. The ledger is append-only, so those lines stay. They carry the bug's signature, a side for the newest period although its volume had not printed, and `python -m gclose.live score` leaves them out and lists them.
+- **Held out.** July to 23 October 2026 was sealed. `python -m gclose.holdout` opened it once, after the freeze, with the recipe as it stood, and refuses to run a second time. It was opened on Saturday evening rather than Sunday morning ([amendment 9](PROTOCOL.md#amendments)); the result is above, including the part that went against us. HOLDOUT.md was written by the results template and is left as opened: its era row carries the walk-forward's era label and its two figures link to the walk-forward's charts, but every table in it is the holdout's own.
+- **Live.** From the freeze, `python -m gclose.live run` decides every half hour and pushes each decision to [`ledger/decisions.jsonl`](ledger/) six minutes before that half hour's gate, once the newest price has normally printed. The frozen model is [plain JSON](ledger/model.json) with a SHA-256 of its contents, and every line carries that hash, so anyone can recompute any decision. Each line's commit time is set on the laptop, and a call counts if it was committed before its gate; GitHub's push log, which we cannot edit, shows when each one arrived, and the table below lists the one that arrived late. Some lines came from old code: after the fix in [amendment 8](PROTOCOL.md#amendments) the first process kept running beside the fixed one for a while (from the 18:30 UTC half hour on 24 October), reading the unprinted newest period as long. The ledger is append-only, so those lines stay. They carry the bug's signature, a side for the newest period although its volume had not printed, and `python -m gclose.live score` leaves them out and lists them.
 - **Known limitation.** From February 2024 Elexon serves each price as revised the next day, and the first print is not kept. In that era our price-based inputs use revised values that were not public at the gate (the timing rule itself is still enforced). We report both eras: before the switch, with clean first prints, ours beats the schedule by £9.9 a day and persistence by 0.0129 Brier; after it, by £2.6 and 0.0110.
 - **Reproducible.** The raw data is committed, so every number rebuilds offline. Two machines agree to the decimal on everything except the boosted model, which moves by up to £2 a day with floating-point differences in tree building.
 
-### The live record, line by line (to Sunday 05:30 UTC)
+### The live record, line by line (to Sunday 10:00 UTC)
 
 All times UTC. GitHub's push time comes from the repository's activity log, which we cannot edit.
 
@@ -136,20 +136,22 @@ All times UTC. GitHub's push time comes from the repository's activity log, whic
 | 24 Oct 18:00 | 17:00 | 16:52 | 16:52 | yes |
 | 24 Oct 18:30, 19:00, 19:30, 20:00 | 17:30 to 19:00 | 17:02 to 18:32 | before each gate | no: the old process, with the bug fixed in amendment 8 |
 | 24 Oct 19:30 (second copy) | 18:30 | 18:07 | 18:16 | yes: the fixed process |
-| 24 Oct 20:30 | 19:30 | 19:24 | 19:41 | counted, but reached GitHub 11 minutes after its gate: two processes' pushes collided |
+| 24 Oct 20:30 | 19:30 | 19:24 | 19:41 | counted on its commit time, though it reached GitHub 11 minutes after its gate: two processes' pushes collided, and the ledger holds it twice, scored once. It called long; the grid was short |
 | 24 Oct 21:00 | 20:00 | 19:54 | 19:54 | yes |
 | 24 Oct 23:00 | 22:00 | 21:32 | 05:19 next day | no: the laptop slept mid-decision |
 | 25 Oct 06:30 | 05:30 | 05:24 | 05:24 | yes |
+| 25 Oct 07:00 | 06:00 | none | none | no call: the laptop was restarting to load amendment 11's fixes |
+| 25 Oct 07:30 to 10:00 | 06:30 to 09:00 | six minutes before each gate | within a minute of deciding | yes |
 
 The gap from 21:30 on Saturday to 06:00 on Sunday is the laptop asleep. Running it for a day proved the machinery (the frozen model, the six-minute lead, the receipts) and found three real operational failures, each now handled in code. It says nothing yet about skill; that takes months of lines.
 
 ## Fine print
 
-- **What gate closure means here.** In GB, gate closure is one hour before each half hour: physical notifications lock and NESO takes over balancing. Trading itself can continue until the half hour starts (BSC modification P342). We model a battery whose physical position is fixed at gate closure, which is when its exposure to the imbalance price is decided. NESO's 2026 call for input on balancing reform recorded calls to move gate closure to 30 minutes, so how much an hour is worth is a live question.
+- **What gate closure means here.** In GB, gate closure is one hour before each half hour: physical notifications lock and NESO takes over balancing. Trading itself can continue until the half hour starts (BSC modification P342). We model a battery whose physical position is fixed at gate closure, which is when its exposure to the imbalance price is decided. NESO's 2026 call for input on balancing reform drew many requests for a shorter gate closure (NESO judged under an hour not yet feasible), so how much an hour is worth is a live question.
 - **This is NIV chasing.** Trading on the expected direction of the system imbalance has a name. NESO's study of it (by FTI Consulting) found it reduces the GB-wide imbalance but can worsen local imbalances behind transmission constraints, and batteries increasingly set the marginal balancing price themselves. We model a 1 MW price-taker; at fleet scale this edge would be competed away.
-- **Skill against the base rate.** Always quoting the base rate scores Brier 0.2495 (the uncertainty term of the decomposition). Ours is 8.1% better (Brier skill score 0.081), persistence 3.4%, NESO's forecast 1.1%.
+- **Skill against the base rate.** Always quoting the base rate scores Brier 0.2495 (the uncertainty term of the decomposition). Ours is 8.1% better (Brier skill score 0.081), persistence 3.3%, NESO's forecast 1.1%.
 - **How the value-of-skill curve is made.** Each probability is moved towards or away from the outcome, p_k = clip(y + k(p - y), 0, 1), and the same optimiser trades on it: k = 1 is our forecast, k = 0 knows the side, k > 1 is worse than ours. Other ways of degrading a forecast could give a different slope.
-- **What the live record can and cannot show.** A day of half hours proves the process: a frozen model, inputs public at the gate, every call on GitHub before its gate. It is far too short to prove skill; the four-year walk-forward and the holdout do that.
+- **What the live record can and cannot show.** A day of half hours proves the process: a frozen model, inputs public at the gate, and every counted call committed before its gate (one reached GitHub late, as listed above). It is far too short to prove skill; the four-year walk-forward and the holdout do that.
 
 ## Demo
 
@@ -159,7 +161,7 @@ To rebuild it: `python -m gclose.export`, then `cd web && npm install && npm run
 
 ## Reproduce
 
-Python 3.11 or later, any OS. About three minutes from a clean clone, with no network: the raw data is in the repo.
+Python 3.11 or later, any OS. About five minutes from a clean clone, with no network: the raw data is in the repo.
 
 ```
 pip install -e ".[dev]"            # or: pip install -r requirements.txt
@@ -171,6 +173,7 @@ python -m gclose.backtest          # walk-forward forecasts, Brier and log loss
 python -m gclose.price_models      # the boosted and ridge checks (1.5 min)
 python -m gclose.decide            # the battery under every forecast, with intervals
 python -m gclose.report            # docs/RESULTS.md and the figures
+python -m gclose.latency           # what an hour is worth: the walk-forward at four decision times (2 min)
 python -m gclose.export            # demo data, and the poison check on a real week
 ```
 

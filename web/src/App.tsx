@@ -164,7 +164,7 @@ export default function App() {
           <p className="lede">
             July 2022 to June 2026, 70,120 half hours, refitted every month on what was public at the time.
             The forecast is clearly better than both baselines, and calibrated, but rarely confident: that is why it is worth
-            only about £5 a day over a fixed schedule.
+            only £5.5 a day over a fixed schedule.
           </p>
           <Reliability r={R} />
           <Skill r={R} />

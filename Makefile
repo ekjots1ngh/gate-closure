@@ -2,7 +2,7 @@
 START = 2022-01-01
 END = 2026-10-23
 
-.PHONY: test lint check data features backtest price_models decide report export reproduce live-check freeze live score holdout
+.PHONY: test lint check data features backtest price_models decide report latency export reproduce live-check freeze live score holdout
 
 test:
 	python -m pytest -q
@@ -31,7 +31,10 @@ decide: backtest price_models
 report: decide
 	python -m gclose.report
 
-export: decide
+latency: features
+	python -m gclose.latency
+
+export: decide latency
 	python -m gclose.export
 
 reproduce: test report export
