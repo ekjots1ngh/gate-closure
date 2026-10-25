@@ -74,9 +74,9 @@ export default function Skill({ r }: { r: Replay }) {
         aria-label="Scale the forecast's errors" onChange={(e) => setK(1.5 - Number(e.target.value))} />
       <label htmlFor="skill" className="slider-label">Drag to make the forecast worse (left) or better (right)</label>
       <p className="slider-readout">
-        <span className="big">{gbp(at.gbp)}</span>
+        <span className="big">{gbp(at.gbp, 1)}</span>
         a day {real ? 'with our forecast' : 'with a hypothetical forecast'} at Brier {at.brier.toFixed(3)},{' '}
-        {gbp(Math.abs(at.gbp - schedule.value))} {at.gbp >= schedule.value ? 'more' : 'less'} than the fixed schedule.
+        {gbp(Math.abs(at.gbp - schedule.value), 1)} {at.gbp >= schedule.value ? 'more' : 'less'} than the fixed schedule.
       </p>
       <p className="note">
         Vertical bars are 90% intervals. A forecast pays for itself only below Brier {breakEven?.toFixed(3)}, the tick on

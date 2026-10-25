@@ -6,7 +6,7 @@ import { explain } from './why';
 const HALF_HOUR = 30 * 60_000;
 const GATE_LEAD = 60 * 60_000;
 const RUN_LEAD = 6 * 60_000;          // the laptop decides six minutes before each gate
-const SHOWN = 16;                     // live calls on the strip
+const SHOWN = 12;                     // live calls on the strip
 
 const utc = (ms: number) => new Date(ms).toISOString().slice(11, 16);
 const mmss = (ms: number) => {
@@ -64,21 +64,22 @@ export default function LiveNow({ live }: { live: Live }) {
               ? ` It printed ${gbp(live.outcomes.get(latest.target_start)!.price)}: the grid was ${live.outcomes.get(latest.target_start)!.short ? 'short' : 'long'}.`
               : awaiting ? ' Nobody knows the answer yet.' : ` Its price prints at about ${utc(Date.parse(latest.target_start) + 52 * 60_000)}.`}
           </p>
-          {why.length > 0 && (
-            <div className="live-why" title="Each input's push, in percentage points: the call as made, against the same call with that input at its average. Exact for this model, a logistic regression on 16 inputs.">
-              <p className="live-why-head">What moved this call</p>
-              {why.map((push) => {
-                const towards = push.points >= 0 ? 'short' : 'long';
-                return (
-                  <div key={push.feature} className="live-why-row">
-                    <span className="live-why-track"><span style={{ width: `${(100 * Math.abs(push.points)) / widest}%`, background: tone(towards) }} /></span>
-                    <span className="live-why-label">{push.label}</span>
-                    <span className="live-why-pts" style={{ color: tone(towards) }}>{Math.abs(push.points) < 1 ? 'under 1 pt' : `${Math.round(Math.abs(push.points))} pts`} towards {towards}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+        </div>
+      )}
+
+      {why.length > 0 && (
+        <div className="live-why" title="Each input's push, in percentage points: the call as made, against the same call with that input at its average. Exact for this model, a logistic regression on 16 inputs.">
+          <p className="live-why-head">What moved this call</p>
+          {why.map((push) => {
+            const towards = push.points >= 0 ? 'short' : 'long';
+            return (
+              <div key={push.feature} className="live-why-row">
+                <span className="live-why-track"><span style={{ width: `${(100 * Math.abs(push.points)) / widest}%`, background: tone(towards) }} /></span>
+                <span className="live-why-label" title={push.label}>{push.label}</span>
+                <span className="live-why-pts" style={{ color: tone(towards) }}>{Math.abs(push.points) < 1 ? 'under 1 pt' : `${Math.round(Math.abs(push.points))} pts`} {towards}</span>
+              </div>
+            );
+          })}
         </div>
       )}
 

@@ -42,8 +42,7 @@ a { color: inherit; }
 /* ---------- the show: everything a viewer needs is on the first screen ---------- */
 
 .show {
-  height: 100vh;
-  min-height: 700px;
+  height: max(100vh, 880px);   /* fills the first screen; on a short screen the page scrolls rather than squash the chart */
   display: grid;
   grid-template-rows: auto auto 24px minmax(0, 1fr);
   border-bottom: 1px solid var(--rule);
@@ -81,7 +80,7 @@ a { color: inherit; }
 .four-years b { color: var(--ink); font-weight: 700; }
 
 /* Live now: the countdown, the latest call, and recent calls against outcomes. */
-.live-now { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(0, 1.4fr); gap: 4px 40px; align-items: start; padding: 8px 22px 8px; border-bottom: 1px solid var(--rule); background: var(--recess); }
+.live-now { display: grid; grid-template-columns: minmax(250px, 1fr) auto minmax(0, 1.3fr); gap: 4px 32px; align-items: start; padding: 8px 22px 8px; border-bottom: 1px solid var(--rule); background: var(--recess); }
 .live-head { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
 .live-head h2 { margin: 0; font-size: 13px; font-weight: 400; color: var(--ink-soft); display: flex; align-items: center; gap: 8px; }
 .live-clock { margin: 0; font-size: 13px; color: var(--ink-soft); }
@@ -92,7 +91,7 @@ a { color: inherit; }
 .live-side { font-size: 28px; font-weight: 700; line-height: 1; }
 .live-act { font-size: 20px; font-weight: 700; }
 .live-meta { margin: 2px 0 0; font-size: 12px; color: var(--ink-faint); max-width: 62ch; }
-.live-why { margin: 6px 0 0; display: grid; grid-template-columns: 64px minmax(0, max-content) auto; gap: 1px 10px; align-items: center; font-size: 12px; }
+.live-why { margin: 0; display: grid; grid-template-columns: 44px minmax(0, 230px) auto; gap: 1px 10px; align-items: center; align-content: start; font-size: 12px; }
 .live-why-head { grid-column: 1 / -1; margin: 0; color: var(--ink-faint); font-size: 11px; }
 .live-why-row { display: contents; }
 .live-why-track { display: flex; justify-content: flex-end; height: 6px; background: var(--lamp-off); border-radius: 2px; overflow: hidden; }
@@ -177,7 +176,8 @@ a { color: inherit; }
 @keyframes ring-in { from { opacity: 0; } to { opacity: 1; } }
 .focus-ring { fill: none; stroke: var(--ink); stroke-width: 2; animation: ring-in 400ms ease-out; }
 .tour-card {
-  position: absolute; bottom: 16px; z-index: 5;
+  position: absolute; z-index: 5;
+  bottom: calc(max(0px, 880px - 100vh) + 16px);   /* on a screen shorter than the show, sit at the bottom of the screen, not of the show */
   background: var(--recess); border: 1px solid var(--ink-soft); border-radius: 6px;
   padding: 14px 16px 12px; box-shadow: 0 10px 30px rgba(10, 14, 12, 0.45);
 }
