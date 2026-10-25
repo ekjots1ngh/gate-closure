@@ -43,6 +43,7 @@ LEDGER = ROOT / "ledger"
 MODEL = LEDGER / "model.json"
 DECISIONS = LEDGER / "decisions.jsonl"
 SCORE = LEDGER / "score.json"
+OUTCOMES = LEDGER / "outcomes.json"  # what each called half hour turned out to be, as its price prints
 RECENT = timedelta(days=3)  # raw data fetched each run: enough for every lag and rolling window
 RUN_AT_MINUTES = (24, 54)  # six minutes before each gate: late enough for t-4's price to have printed
 WAKE_TOLERANCE = pd.Timedelta(minutes=2)  # a run that wakes later than this after its moment is skipped
@@ -241,6 +242,35 @@ def decide(now: pd.Timestamp, raw: list[pd.DataFrame], frozen: Frozen, entries: 
 # ---------------------------------------------------------------- the ledger and git
 
 
+def outcomes(entries: list[dict], prices: pd.DataFrame, now: pd.Timestamp) -> list[dict]:
+    """The printed price and side for every called half hour whose price is public at `now`.
+
+    Written whole on every run from the prices just fetched, so the demo can show each call
+    against what happened without asking Elexon itself.
+    """
+    printed = prices[first_print_at(prices) < now].dropna(subset=["ssp", "niv"]).drop_duplicates("start_time")
+    by_start = printed.set_index("start_time")
+    labels = battery.LABEL.tolist()
+    out = []
+    for start in sorted({entry["target_start"] for entry in entries}):
+        stamp = pd.Timestamp(start)
+        if stamp not in by_start.index:
+            continue
+        price, niv = float(by_start.at[stamp, "ssp"]), float(by_start.at[stamp, "niv"])
+        calls = [entry for entry in entries if entry["target_start"] == start]
+        latest = calls[-1]
+        out.append(
+            {
+                "target_start": start,
+                "price": round(price, 2),
+                "short": niv > 0,
+                "printed_at": first_print_at(printed[printed["start_time"] == stamp]).iloc[0].isoformat(),
+                "pnl": round(float(battery.cash(np.array([price]))[0, labels.index(latest["action"])]), 2),
+            }
+        )
+    return out
+
+
 def read_ledger() -> list[dict]:
     if not DECISIONS.exists():
         return []
@@ -308,14 +338,17 @@ def run_forever() -> None:
         if any(entry["target_start"] == target_for(now).isoformat() for entry in entries):
             continue
         try:
-            entry = decide(now, fetch_recent(now), frozen, entries)
+            raw = fetch_recent(now)
+            entry = decide(now, raw, frozen, entries)
             if not before_gate(entry, pd.Timestamp.now(tz="UTC")):
                 print(f"the call for {entry['target_start'][11:16]} finished after its gate; not recorded")
                 continue
             with DECISIONS.open("a", encoding="utf-8") as ledger:
                 ledger.write(json.dumps(entry) + "\n")
+            OUTCOMES.write_text(json.dumps(outcomes(entries, raw[0], now), indent=1), encoding="utf-8")
             publish(
-                [str(DECISIONS.relative_to(ROOT))], f"ledger: {entry['target_start']} decided at {entry['decided_at']}"
+                [str(DECISIONS.relative_to(ROOT)), str(OUTCOMES.relative_to(ROOT))],
+                f"ledger: {entry['target_start']} decided at {entry['decided_at']}",
             )
             missing = [name for name, value in entry["inputs"].items() if value is None]
             print(

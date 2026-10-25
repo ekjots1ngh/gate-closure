@@ -83,3 +83,21 @@ def test_a_decision_finished_after_its_gate_is_not_recorded():
     entry = {"gate": "2026-10-24T22:00:00+00:00"}
     assert live.before_gate(entry, pd.Timestamp("2026-10-24 21:32", tz="UTC"))
     assert not live.before_gate(entry, pd.Timestamp("2026-10-25 05:19", tz="UTC"))
+
+
+def test_outcomes_cover_only_called_half_hours_whose_price_has_printed():
+    starts = pd.date_range("2026-10-24 18:00", periods=3, freq="30min", tz="UTC")
+    prices = pd.DataFrame(
+        {
+            "start_time": starts,
+            "created_at": starts + pd.Timedelta(minutes=52),
+            "ssp": [120.0, 80.0, 90.0],
+            "niv": [300.0, -200.0, 50.0],
+        }
+    )
+    entries = [{"target_start": s.isoformat(), "action": a} for s, a in zip(starts, (1, -1, 0), strict=True)]
+    now = pd.Timestamp("2026-10-24 19:30", tz="UTC")  # 18:00 and 18:30 have printed; 19:00 has not
+    out = live.outcomes(entries, prices, now)
+    assert [o["target_start"][11:16] for o in out] == ["18:00", "18:30"]
+    assert out[0]["short"] and not out[1]["short"]
+    assert out[0]["pnl"] > 0 > out[1]["pnl"]  # sold at 120, bought at 80
