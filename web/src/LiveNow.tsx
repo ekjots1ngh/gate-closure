@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { gbp, side, sure, tone, verb } from './data';
 import { type Live } from './live';
+import { explain } from './why';
 
 const HALF_HOUR = 30 * 60_000;
 const GATE_LEAD = 60 * 60_000;
@@ -34,6 +35,8 @@ export default function LiveNow({ live }: { live: Live }) {
   const settled = recent.filter((row) => live.outcomes.has(row.target_start));
   const right = settled.filter((row) => (row.p_short >= 0.5) === live.outcomes.get(row.target_start)!.short).length;
   const money = settled.reduce((sum, row) => sum + live.outcomes.get(row.target_start)!.pnl, 0);
+  const why = latest ? explain(latest) : [];
+  const widest = Math.max(10, ...why.map((push) => Math.abs(push.points)));
 
   return (
     <section className="live-now" aria-label="Live">
@@ -61,6 +64,21 @@ export default function LiveNow({ live }: { live: Live }) {
               ? ` It printed ${gbp(live.outcomes.get(latest.target_start)!.price)}: the grid was ${live.outcomes.get(latest.target_start)!.short ? 'short' : 'long'}.`
               : awaiting ? ' Nobody knows the answer yet.' : ` Its price prints at about ${utc(Date.parse(latest.target_start) + 52 * 60_000)}.`}
           </p>
+          {why.length > 0 && (
+            <div className="live-why" title="Each input's push, in percentage points: the call as made, against the same call with that input at its average. Exact for this model, a logistic regression on 16 inputs.">
+              <p className="live-why-head">What moved this call</p>
+              {why.map((push) => {
+                const towards = push.points >= 0 ? 'short' : 'long';
+                return (
+                  <div key={push.feature} className="live-why-row">
+                    <span className="live-why-track"><span style={{ width: `${(100 * Math.abs(push.points)) / widest}%`, background: tone(towards) }} /></span>
+                    <span className="live-why-label">{push.label}</span>
+                    <span className="live-why-pts" style={{ color: tone(towards) }}>{Math.abs(push.points) < 1 ? 'under 1 pt' : `${Math.round(Math.abs(push.points))} pts`} towards {towards}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

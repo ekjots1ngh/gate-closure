@@ -4,6 +4,8 @@
 
 **Forecasting the GB grid's imbalance one hour ahead, and pricing what that forecast is worth.**
 
+**Live demo: [ekjots1ngh.github.io/gate-closure](https://ekjots1ngh.github.io/gate-closure/)**, with this morning's live calls at the top and a week replayed at the gate below.
+
 Every half hour the GB electricity system is either short of power or long. Whoever is on the wrong side pays the imbalance price, which nobody knows until about twenty minutes after the half hour ends. One hour before each half hour, at gate closure, we forecast which side the grid will be on, using only data that was public at that moment. A simulated 1 MW / 2 MWh battery trades on the forecast.
 
 Built in 24 hours at OxHack '26 (Oxford, 24 to 25 October 2026) for HRT's challenge: *best use of data for predictions and decision making*. The theme of the hack was time; this project is about the one hour between deciding and knowing.
@@ -151,7 +153,7 @@ The gap from 21:30 on Saturday to 06:00 on Sunday is the laptop asleep. Running 
 
 ## Demo
 
-[`web/dist/index.html`](web/dist/index.html) is the whole demo in one file, data and fonts included: download it and open it in a browser, no install and no network needed. It replays one week of 2026 (the week with the widest range of prices, chosen without looking at the money) as the control room would have seen it. Prices print about 52 minutes after each half hour starts, the forecast's lamps light at each gate, the battery trades, and the wind map shows the forecast revisions the model saw. **Poison the future** (key P) replaces everything published after a cutoff with noise and shows that no decision before it moves. Below the replay, a slider scales the forecast's errors to show what skill is worth, and the live record is read straight from this repository.
+Open it at [ekjots1ngh.github.io/gate-closure](https://ekjots1ngh.github.io/gate-closure/). [`web/dist/index.html`](web/dist/index.html) is the same demo in one file, data and fonts included, so it also opens offline from a download. At the top is the live record: the latest call, what moved it, and the recent calls against what then printed. The model is a logistic regression, so each call's log-odds split exactly into one term per input; "What moved this call" shows the three largest, in percentage points against the same call with that input at its average, computed from `ledger/model.json` and the inputs each ledger line records. Below it, the demo replays one week of 2026 (the week with the widest range of prices, chosen without looking at the money) as the control room would have seen it. Prices print about 52 minutes after each half hour starts, the forecast's lamps light at each gate, the battery trades, and the wind map shows the forecast revisions the model saw. **Poison the future** (key P) replaces everything published after a cutoff with noise and shows that no decision before it moves. Below the replay, a slider scales the forecast's errors to show what skill is worth, and the live record is read straight from this repository.
 
 To rebuild it: `python -m gclose.export`, then `cd web && npm install && npm run build`.
 
