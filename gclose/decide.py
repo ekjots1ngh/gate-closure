@@ -370,7 +370,7 @@ def rounded(obj: object, digits: int = 4) -> object:
 def main() -> None:
     study = run_study()
     study.daily.to_parquet(DAILY_PNL)
-    RESULTS.write_text(json.dumps(rounded(study.results), indent=1))
+    RESULTS.write_text(json.dumps(rounded(study.results), indent=1), encoding="utf-8")
     print("GBP per day [90% interval]")
     for name, m in study.results["money"].items():
         print(f"  {name:24s} {m['value']:7.1f} [{m['lo']:6.1f}, {m['hi']:6.1f}]   trades in {m['active_share']:.0%}")

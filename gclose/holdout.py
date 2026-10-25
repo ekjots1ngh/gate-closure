@@ -34,12 +34,12 @@ def main() -> None:
     forecasts = walk_forward(table, ladder, FIRST_MONTH, LAST_MONTH, end=None)
     price_forecasts = walk_forward(table, price_models.fit_predict, FIRST_MONTH, LAST_MONTH, end=None)
     results = study(TestPeriods.build(table, forecasts, price_forecasts)).results
-    RESULTS.write_text(json.dumps(rounded(results), indent=1))
+    RESULTS.write_text(json.dumps(rounded(results), indent=1), encoding="utf-8")
     scope = (
         f"Opened once, at {opened_at:%Y-%m-%d %H:%M} UTC, by `python -m gclose.holdout`; do not edit by hand.\n"
         f"Holdout, 1 July to 23 October 2026, with the frozen recipe; {len(forecasts):,} half hours."
     )
-    REPORT.write_text(report.render(rounded(results), title="Holdout", scope=scope))
+    REPORT.write_text(report.render(rounded(results), title="Holdout", scope=scope), encoding="utf-8")
     ours, schedule = results["money"]["chain/ours"], results["money"]["chain/schedule"]
     gain = results["gain"]["chain/ours"]["gbp"]
     print(

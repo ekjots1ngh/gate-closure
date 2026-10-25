@@ -254,7 +254,7 @@ def main() -> None:
             f"  poison {'passed' if s['poison']['passed'] else 'FAILED'}  {s['seconds']:.0f}s",
             flush=True,
         )
-        if minutes == PROTOCOL_MINUTES and not reproduces(s, json.loads(decide.RESULTS.read_text())):
+        if minutes == PROTOCOL_MINUTES and not reproduces(s, json.loads(decide.RESULTS.read_text(encoding="utf-8"))):
             raise SystemExit("the 60-minute run does not reproduce results.json; find out why before any other lead")
 
     protocol = runs[PROTOCOL_MINUTES]
@@ -263,7 +263,7 @@ def main() -> None:
         "reproduces_results_json": True,
         "leads": [{**r.summary, "versus_protocol": versus_protocol(r, protocol)} for _, r in sorted(runs.items())],
     }
-    LATENCY.write_text(json.dumps(decide.rounded(latency), indent=1))
+    LATENCY.write_text(json.dumps(decide.rounded(latency), indent=1), encoding="utf-8")
     write_figures(latency)
     print("ours at each lead minus ours at the gate [90% interval]")
     for lead in latency["leads"]:

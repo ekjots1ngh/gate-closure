@@ -36,7 +36,7 @@ negative favours ours.
   <img alt="Reliability diagram: on the diagonal, mostly between 0.3 and 0.7" src="reliability_light.svg">
 </picture>
 
-## Money: a 1 MW / 2 MWh battery, £ per day
+## Money: a 1 MW / 2 MWh battery, Â£ per day
 
 One step: the forecast prices the next half hour only. Chain: it also shapes the next few half hours,
 fading at the side's own persistence.
@@ -52,7 +52,7 @@ fading at the side's own persistence.
 
 Price forecasts (one step) and the two ceilings:
 
-| policy | £ per day [90% CI] |
+| policy | Â£ per day [90% CI] |
 | :--- | ---: |
 | price forecast, ridge | 60.6 [40.9, 77.4] |
 | price forecast, boosted | 66.3 [49.8, 83.1] |
@@ -60,7 +60,7 @@ Price forecasts (one step) and the two ceilings:
 | knowing the price an hour early | 140.2 [123.6, 159.4] |
 | perfect hindsight, every price known | 325.2 [291.5, 358.8] |
 
-## Gain over the fixed schedule, £ per day
+## Gain over the fixed schedule, Â£ per day
 
 "Share" is the share of the gap between the schedule and knowing the side an hour early. The protocol's
 spike check leaves out the top 1% of half hours by absolute price; the harsher check leaves out the top 1% of days.
@@ -86,10 +86,10 @@ Until February 2024 the stored prices are first prints; after it, Elexon's next-
 
 ## Risk
 
-Annualised Sharpe ratio of daily P&L, and the largest fall from a running peak in cumulative £. The last
+Annualised Sharpe ratio of daily P&L, and the largest fall from a running peak in cumulative Â£. The last
 row is the forecast's gain over the schedule, so its Sharpe ratio is an information ratio.
 
-| series | Sharpe ratio | max drawdown, £ |
+| series | Sharpe ratio | max drawdown, Â£ |
 | :--- | ---: | ---: |
 | chain/schedule | 11.87 | 397 |
 | chain/ours | 10.15 | 499 |
@@ -100,7 +100,7 @@ row is the forecast's gain over the schedule, so its Sharpe ratio is an informat
 The chain policy fades the forecast as a two-state Markov chain would: autocorrelation at lag h equal to
 the lag-1 value to the power h. The side's measured autocorrelation decays much more slowly, so the grid
 has longer memory than that. Fading with the measured memory instead earns
-£73.63 a day against £71.88. The
+Â£73.63 a day against Â£71.88. The
 simplification costs about a pound a day, so we report it and keep the protocol's policy rather than
 change it after seeing the results.
 
@@ -114,7 +114,7 @@ change it after seeing the results.
 | 6 | 0.112 | 0.014 |
 | 7 | 0.099 | 0.007 |
 
-## By year, £ per day
+## By year, Â£ per day
 
 | year | schedule | ours (chain) | persistence (chain) | NESO (chain) | knowing the side | hindsight |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -124,7 +124,7 @@ change it after seeing the results.
 
 Our forecast errors scaled by k: k = 0 knows the side, k = 1 is our forecast, k above 1 is worse.
 
-| k | Brier | one step, £/day | chain, £/day |
+| k | Brier | one step, Â£/day | chain, Â£/day |
 | :--- | ---: | ---: | ---: |
 | 0.00 | 0.0000 | 156.0 | 155.7 |
 | 0.25 | 0.0145 | 158.4 | 153.7 |

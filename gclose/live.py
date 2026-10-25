@@ -60,6 +60,24 @@ def pre_fix(entries: pd.DataFrame) -> pd.Series:
     return inputs["short_newest"].notna() & inputs["niv_newest"].isna()
 
 
+def committed_at(entries: pd.DataFrame) -> pd.Series:
+    """When each ledger line was committed, from git's own log; NaT for a line not yet committed.
+
+    A line only counts as a receipt if it was committed, and so pushable, before its gate: once
+    a laptop slept mid-decision and committed the line hours after the gate. Git's author date is
+    the original commit time; the committer date moves whenever a pull rebases the commit.
+    """
+    log = _git("log", "--format=%aI%x09%s", "--", str(DECISIONS.relative_to(ROOT)))
+    times = {}
+    for line in log.splitlines():
+        stamp, _, subject = line.partition("\t")
+        if subject.startswith("ledger: ") and " decided at " in subject:
+            target, decided = subject.removeprefix("ledger: ").split(" decided at ")
+            times.setdefault((target, decided), pd.Timestamp(stamp).tz_convert("UTC"))
+    keys = zip(entries["target_start"], entries["decided_at"], strict=True)
+    return pd.Series([times.get(key, pd.NaT) for key in keys], index=entries.index, dtype="datetime64[ns, UTC]")
+
+
 # ---------------------------------------------------------------- the frozen model
 
 
@@ -93,11 +111,11 @@ class Frozen:
 
     def save(self) -> None:
         LEDGER.mkdir(exist_ok=True)
-        MODEL.write_text(json.dumps({**asdict(self), "sha256": self.sha256()}, indent=1))
+        MODEL.write_text(json.dumps({**asdict(self), "sha256": self.sha256()}, indent=1), encoding="utf-8")
 
     @classmethod
     def load(cls) -> Frozen:
-        stored = json.loads(MODEL.read_text())
+        stored = json.loads(MODEL.read_text(encoding="utf-8"))
         claimed = stored.pop("sha256")
         frozen = cls(**stored)
         if frozen.sha256() != claimed:
@@ -216,7 +234,7 @@ def decide(now: pd.Timestamp, raw: list[pd.DataFrame], frozen: Frozen, entries: 
 def read_ledger() -> list[dict]:
     if not DECISIONS.exists():
         return []
-    return [json.loads(line) for line in DECISIONS.read_text().splitlines() if line.strip()]
+    return [json.loads(line) for line in DECISIONS.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def _git(*args: str) -> str:
@@ -265,7 +283,7 @@ def run_forever() -> None:
             continue
         try:
             entry = decide(now, fetch_recent(now), frozen, entries)
-            with DECISIONS.open("a") as ledger:
+            with DECISIONS.open("a", encoding="utf-8") as ledger:
                 ledger.write(json.dumps(entry) + "\n")
             publish(
                 [str(DECISIONS.relative_to(ROOT))], f"ledger: {entry['target_start']} decided at {entry['decided_at']}"
@@ -285,12 +303,13 @@ def run_forever() -> None:
 
 def score(prices: pd.DataFrame) -> dict:
     """Ours against the no-forecast schedule over every ledger period whose price has printed,
-    leaving out the pre-fix lines."""
+    leaving out the pre-fix lines and any line not committed before its gate."""
     ledger = pd.DataFrame(read_ledger())
     if ledger.empty:
         raise SystemExit("the ledger is empty")
+    late = ~(committed_at(ledger) < pd.to_datetime(ledger["gate"]))
     entries = (
-        ledger[~pre_fix(ledger)]
+        ledger[~pre_fix(ledger) & ~late]
         .drop_duplicates("target_start")  # two processes once decided the same period in the same second
         .assign(target_start=lambda e: pd.to_datetime(e["target_start"], utc=True))
     )
@@ -322,6 +341,7 @@ def score(prices: pd.DataFrame) -> dict:
         "ours_gbp": float(ours.sum()),
         "schedule_gbp": float(schedule.pnl.sum()),
         "left_out_pre_fix": ledger.loc[pre_fix(ledger), "target_start"].tolist(),
+        "left_out_committed_after_the_gate": ledger.loc[late & ~pre_fix(ledger), "target_start"].tolist(),
         "every_line_decided_before_its_gate": bool(
             (pd.to_datetime(ledger["decided_at"]) < pd.to_datetime(ledger["gate"])).all()
         ),
@@ -364,7 +384,7 @@ def main() -> None:
         days = pd.to_datetime([e["target_start"] for e in read_ledger()], utc=True)
         prices = load("prices") if args.offline else fetch_prices(days.min().date(), days.max().date())
         result = score(prices)
-        SCORE.write_text(json.dumps(result, indent=1))
+        SCORE.write_text(json.dumps(result, indent=1), encoding="utf-8")
         publish([str(SCORE.relative_to(ROOT))], f"ledger: scored {result['periods_scored']} periods")
         print(json.dumps(result, indent=1))
     else:

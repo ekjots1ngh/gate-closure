@@ -93,7 +93,7 @@ def main() -> None:
         **study.results,
     }
     REPLAY.parent.mkdir(parents=True, exist_ok=True)
-    REPLAY.write_text(json.dumps(rounded(replay), indent=1))
+    REPLAY.write_text(json.dumps(rounded(replay), indent=1), encoding="utf-8")
     prices = study.periods.realised[in_week]
     print(f"wrote {REPLAY}: week {week}, {in_week.sum()} half hours, price {prices.min():.0f} to {prices.max():.0f}")
 

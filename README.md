@@ -25,6 +25,30 @@ For scale, knowing the side of every half hour an hour early would earn £223 a 
 
 Every table, interval and robustness check is in [docs/RESULTS.md](docs/RESULTS.md), generated from the pipeline's output.
 
+## Out of sample: the sealed holdout
+
+July to 23 October 2026 was sealed until after the freeze and opened once, with the walk-forward's own recipe ([docs/HOLDOUT.md](docs/HOLDOUT.md), 5,520 half hours):
+
+- **The forecast held.** Ours scores Brier 0.2319, against 0.2417 for calibrated persistence and 0.2466 for NESO's forecast. The pre-registered failure condition was that ours would not beat persistence outside the 90% interval; it does, by 0.0097 [0.0059, 0.0144].
+- **The money did not.** In these months the fixed schedule earned £86.0 a day, twice its four-year average, as price spreads hit records. With our forecast the battery earned £71.9: a loss of £14.1 a day [4.1, 25.7] against the schedule. The value-of-skill curve says why: against a schedule that strong, a forecast needs Brier about 0.21 to pay, and ours is 0.232. The skill was real; this summer it was not enough.
+
+## What is an hour worth?
+
+Gate closure is fixed at an hour by the market's rules, and NESO's 2026 consultation on balancing reform recorded calls to move it to 30 minutes. Every timing rule here is one constant, so [`gclose/latency.py`](gclose/latency.py) reruns the four-year walk-forward with the decision 30, 60, 90 and 120 minutes before each half hour, moving the newest visible price with the gate, and runs the poison check at every lead (all pass; the 60-minute run reproduces the headline to every digit).
+
+| decided before the half hour | 120 min | 90 min | **60 min (the rule)** | 30 min |
+| :--- | ---: | ---: | ---: | ---: |
+| Brier, ours | 0.2330 | 0.2323 | **0.2293** | 0.2200 |
+| £ a day, ours (schedule £42.9) | 45.1 | 42.6 | **48.3** | 57.9 |
+| gain over the schedule, £ a day | 2.1 [-2.6, 7.0] | -0.4 [-4.6, 4.2] | **5.4 [1.0, 9.7]** | 15.0 [10.1, 19.9] |
+
+Deciding half an hour later is worth £9.6 a day more to this battery [6.8, 12.6], paired by week. The gain holds where print times are exact (first prints, to January 2024): £22.0 a day over the schedule at 30 minutes [10.9, 33.2], against £9.4 at 60. Further from delivery than an hour, the edge is gone. This is an analysis added after the results ([amendment 10](PROTOCOL.md#amendments)), not a change to any model.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/value_of_time_dark.svg">
+  <img alt="Brier score and money per day against minutes before the half hour: both improve sharply between 60 and 30 minutes" src="docs/value_of_time_light.svg">
+</picture>
+
 ## The maths, and what each piece does
 
 | Concept | Where you meet it | What it does here | What it showed |
@@ -96,10 +120,26 @@ flowchart LR
 ## Honesty
 
 - **Pre-registered.** [`PROTOCOL.md`](PROTOCOL.md) fixed the question, baselines, battery, metrics and failure condition before any result existed. Every later change is a dated amendment saying what changed, why, and its effect, including the ones found by an independent code review.
-- **Held out.** July to 23 October 2026 is sealed. `python -m gclose.holdout` opens it once, after the freeze, with the walk-forward's own recipe, and refuses to run a second time.
+- **Held out.** July to 23 October 2026 was sealed. `python -m gclose.holdout` opened it once, after the freeze, with the walk-forward's own recipe, and refuses to run a second time. It was opened on Saturday evening rather than Sunday morning ([amendment 9](PROTOCOL.md#amendments)); the result is above, including the part that went against us.
 - **Live.** From the freeze, `python -m gclose.live run` decides every half hour and pushes each decision to [`ledger/decisions.jsonl`](ledger/) six minutes before that half hour's gate, once the newest price has normally printed. The frozen model is [plain JSON](ledger/model.json) with a SHA-256 of its contents, and every line carries that hash, so anyone can recompute any decision. GitHub's timestamps are the receipt. Some lines came from old code: after the fix in [amendment 8](PROTOCOL.md#amendments) the first process kept running beside the fixed one for a while (from the 18:30 UTC half hour on 24 October), reading the unprinted newest period as long. The ledger is append-only, so those lines stay. They carry the bug's signature, a side for the newest period although its volume had not printed, and `python -m gclose.live score` leaves them out and lists them.
 - **Known limitation.** From February 2024 Elexon serves each price as revised the next day, and the first print is not kept. In that era our price-based inputs use revised values that were not public at the gate (the timing rule itself is still enforced). We report both eras: before the switch, with clean first prints, ours beats the schedule by £9.4 a day and persistence by 0.0127 Brier; after it, by £2.7 and 0.0110.
 - **Reproducible.** The raw data is committed, so every number rebuilds offline. Two machines agree to the decimal on everything except the boosted model, which moves by up to £2 a day with floating-point differences in tree building.
+
+### The live record, line by line (to Sunday 05:30 UTC)
+
+All times UTC. GitHub's push time comes from the repository's activity log, which we cannot edit.
+
+| half hour | gate | decided | on GitHub | counted? |
+| :--- | :--- | :--- | :--- | :--- |
+| 24 Oct 18:00 | 17:00 | 16:52 | 16:52 | yes |
+| 24 Oct 18:30, 19:00, 19:30, 20:00 | 17:30 to 19:00 | 17:02 to 18:32 | before each gate | no: the old process, with the bug fixed in amendment 8 |
+| 24 Oct 19:30 (second copy) | 18:30 | 18:07 | 18:16 | yes: the fixed process |
+| 24 Oct 20:30 | 19:30 | 19:24 | 19:41 | counted, but reached GitHub 11 minutes after its gate: two processes' pushes collided |
+| 24 Oct 21:00 | 20:00 | 19:54 | 19:54 | yes |
+| 24 Oct 23:00 | 22:00 | 21:32 | 05:19 next day | no: the laptop slept mid-decision |
+| 25 Oct 06:30 | 05:30 | 05:24 | 05:24 | yes |
+
+The gap from 21:30 on Saturday to 06:00 on Sunday is the laptop asleep. Running it for a day proved the machinery (the frozen model, the six-minute lead, the receipts) and found three real operational failures, each now handled in code. It says nothing yet about skill; that takes months of lines.
 
 ## Fine print
 
@@ -123,7 +163,7 @@ Python 3.11 or later, any OS. About three minutes from a clean clone, with no ne
 pip install -e ".[dev]"            # or: pip install -r requirements.txt
 make reproduce                     # or run the lines below in order
 
-python -m pytest -q                # 29 tests, about 15 s
+python -m pytest -q                # 31 tests, about 15 s
 python -m gclose.features          # gate-safe feature table from data/raw (12 s)
 python -m gclose.backtest          # walk-forward forecasts, Brier and log loss
 python -m gclose.price_models      # the boosted and ridge checks (1.5 min)
@@ -153,6 +193,7 @@ gclose/report.py         docs/RESULTS.md and the figures, rendered from results.
 gclose/figures.py        README figures in light and dark
 gclose/live.py           the frozen model and the live record: check, freeze, run, score, replay
 gclose/holdout.py        opens the holdout, once
+gclose/latency.py        what an hour is worth: the walk-forward at four decision times
 gclose/export.py         replay data for the demo
 gclose/store.sql         a TimescaleDB sketch for the Tiger Data track (not used by the pipeline)
 tests/                   the poison test with planted leaks; the optimiser against a scalar loop

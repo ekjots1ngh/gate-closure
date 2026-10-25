@@ -214,9 +214,9 @@ Our forecast errors scaled by k: k = 0 knows the side, k = 1 is our forecast, k 
 
 
 def main() -> None:
-    results = json.loads(RESULTS.read_text())
+    results = json.loads(RESULTS.read_text(encoding="utf-8"))
     figures.write_all(results)
-    (DOCS / "RESULTS.md").write_text(render(results))
+    (DOCS / "RESULTS.md").write_text(render(results), encoding="utf-8")
     print(f"wrote {DOCS / 'RESULTS.md'} and the figures")
 
 
