@@ -6,6 +6,7 @@ import {
   type Derived, type Replay,
 } from './data';
 import GateChart from './GateChart';
+import HourCurve from './HourCurve';
 import MapPanel from './MapPanel';
 import MoneyLadder from './MoneyLadder';
 import Receipts from './Receipts';
@@ -165,6 +166,16 @@ export default function App() {
           <Skill r={R} />
           <div className="span"><MoneyLadder r={R} /></div>
         </div>
+
+        {R.value_of_time && (
+          <div className="section">
+            <h2>What is an hour worth?</h2>
+            <p className="lede">
+              The rules make every call an hour ahead. The same four-year test, rerun with the call made earlier or later:
+            </p>
+            <HourCurve r={R} />
+          </div>
+        )}
 
         <div className="section">
           <h2>Receipts</h2>

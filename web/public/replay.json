@@ -1,6 +1,6 @@
 {
  "meta": {
-  "generated_at": "2026-10-24T18:22+00:00",
+  "generated_at": "2026-10-25T05:39+00:00",
   "test_period": "2022-07 to 2026-06, walk-forward, refitted monthly",
   "replay_week": "2026-06-22/2026-06-28",
   "replay_rule": "The 2026 week with the widest range of system prices, chosen without looking at P&L.",
@@ -9429,6 +9429,68 @@
   "decisions_changed": 0,
   "later_rows_poisoned": 258
  },
+ "value_of_time": [
+  {
+   "minutes": 30,
+   "brier": {
+    "ours": 0.22,
+    "persistence_cal": 0.2336,
+    "indicated": 0.248
+   },
+   "ours_gbp": 57.9146,
+   "schedule_gbp": 42.9363,
+   "gain": {
+    "value": 14.9783,
+    "lo": 10.0581,
+    "hi": 19.9353
+   }
+  },
+  {
+   "minutes": 60,
+   "brier": {
+    "ours": 0.2293,
+    "persistence_cal": 0.2409,
+    "indicated": 0.2468
+   },
+   "ours_gbp": 48.3012,
+   "schedule_gbp": 42.9363,
+   "gain": {
+    "value": 5.3649,
+    "lo": 0.9938,
+    "hi": 9.6508
+   }
+  },
+  {
+   "minutes": 90,
+   "brier": {
+    "ours": 0.2323,
+    "persistence_cal": 0.2443,
+    "indicated": 0.2444
+   },
+   "ours_gbp": 42.5779,
+   "schedule_gbp": 42.9585,
+   "gain": {
+    "value": -0.3806,
+    "lo": -4.6291,
+    "hi": 4.1916
+   }
+  },
+  {
+   "minutes": 120,
+   "brier": {
+    "ours": 0.233,
+    "persistence_cal": 0.2462,
+    "indicated": 0.2418
+   },
+   "ours_gbp": 45.0972,
+   "schedule_gbp": 42.9585,
+   "gain": {
+    "value": 2.1387,
+    "lo": -2.6099,
+    "hi": 7.0364
+   }
+  }
+ ],
  "forecasts": [
   {
    "model": "coin",

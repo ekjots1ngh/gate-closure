@@ -70,6 +70,24 @@ def tape(study: Study, week: np.ndarray) -> list[dict]:
     return records
 
 
+def value_of_time() -> list[dict] | None:
+    """The latency study's summary per decision time, if `python -m gclose.latency` has been run."""
+    from .latency import LATENCY  # imported here: gclose.latency itself imports this module
+
+    if not LATENCY.exists():
+        return None
+    return [
+        {
+            "minutes": lead["minutes"],
+            "brier": {name: lead["brier"][name]["value"] for name in ("ours", "persistence_cal", "indicated")},
+            "ours_gbp": lead["money"]["chain/ours"]["value"],
+            "schedule_gbp": lead["money"]["chain/schedule"]["value"],
+            "gain": lead["gain"],
+        }
+        for lead in json.loads(LATENCY.read_text(encoding="utf-8"))["leads"]
+    ]
+
+
 def main() -> None:
     study = run_study()
     week = replay_week(study.periods)
@@ -90,6 +108,7 @@ def main() -> None:
         },
         "tape": tape(study, in_week),
         "poison": poison,
+        "value_of_time": value_of_time(),
         **study.results,
     }
     REPLAY.parent.mkdir(parents=True, exist_ok=True)

@@ -36,6 +36,8 @@ export interface Replay {
   by_era: Record<string, { ours_minus_persistence_cal: Estimate; schedule: number; chain_ours: number; gain: Gain }>;
   by_year: ({ year: number } & Record<string, number>)[];
   value_of_skill: { one: SkillPoint[]; chain: SkillPoint[] };
+  value_of_time: { minutes: number; brier: Record<'ours' | 'persistence_cal' | 'indicated', number>;
+                   ours_gbp: number; schedule_gbp: number; gain: Estimate }[] | null;
 }
 
 export const PERIOD_MS = 30 * 60_000;

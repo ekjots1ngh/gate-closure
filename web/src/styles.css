@@ -163,6 +163,12 @@ a { color: inherit; }
 
 /* ---------- the record: what four years and the receipts say ---------- */
 
+.segmented { display: inline-flex; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; margin: 2px 0 12px; }
+.segmented button { background: var(--recess); border: none; border-right: 1px solid var(--rule); padding: 6px 14px; cursor: pointer; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.segmented button:last-child { border-right: none; }
+.segmented button[aria-checked='true'] { background: var(--ink); color: var(--panel); font-weight: 700; }
+.hour-say { color: var(--ink) !important; font-size: 15px; margin-top: 14px !important; max-width: 52ch; }
+
 .record { max-width: 1480px; margin: 0 auto; padding: 8px 22px 48px; }
 .section { margin-top: 40px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 40px; }
 .section > h2 { grid-column: 1 / -1; margin: 0 0 4px; font-size: 24px; font-weight: 700; padding-top: 18px; border-top: 1px solid var(--rule); }
