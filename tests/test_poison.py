@@ -139,3 +139,18 @@ def test_planted_leaks_are_caught(monkeypatch, patches):
     for name, value in patches.items():
         monkeypatch.setattr(features, name, value)
     assert any(changed > 0 for changed in _leaks(_synthetic()))
+
+
+def test_a_forecast_published_exactly_at_the_gate_is_not_used():
+    """Public "before the gate" means strictly before: real WINDFOR, NDF and IMBALNGC vintages land on :00 and :30."""
+    prices, windfor, ndf, imbalngc = _synthetic(days=3)
+    table = features.build(prices, windfor, ndf, imbalngc)
+    row = table.iloc[len(table) // 2]
+    on_the_gate = (
+        imbalngc[imbalngc["start_time"] == row["start_time"]].iloc[:1].assign(publish_time=row["gate"], value=123_456.0)
+    )
+    later = features.build(prices, windfor, ndf, pd.concat([imbalngc, on_the_gate], ignore_index=True))
+    assert later.loc[later["start_time"] == row["start_time"], "indicated_latest"].iloc[0] != 123_456.0
+    just_before = on_the_gate.assign(publish_time=row["gate"] - pd.Timedelta(seconds=1))
+    earlier = features.build(prices, windfor, ndf, pd.concat([imbalngc, just_before], ignore_index=True))
+    assert earlier.loc[earlier["start_time"] == row["start_time"], "indicated_latest"].iloc[0] == 123_456.0

@@ -47,6 +47,7 @@ RECENT = timedelta(days=3)  # raw data fetched each run: enough for every lag an
 RUN_AT_MINUTES = (24, 54)  # six minutes before each gate: late enough for t-4's price to have printed
 WAKE_TOLERANCE = pd.Timedelta(minutes=2)  # a run that wakes later than this after its moment is skipped
 HALF_HOUR = pd.Timedelta(minutes=30)
+ONE_DAY = pd.Timedelta(days=1)
 
 
 def pre_fix(entries: pd.DataFrame) -> pd.Series:
@@ -153,8 +154,12 @@ def target_for(now: pd.Timestamp) -> pd.Timestamp:
 
 
 def fetch_recent(now: pd.Timestamp) -> list[pd.DataFrame]:
-    """The last RECENT of every dataset, straight from Elexon: by definition, all of it is public now."""
-    prices = fetch_prices((now - RECENT).date(), now.date())
+    """The last RECENT of every dataset, straight from Elexon: by definition, all of it is public now.
+
+    Prices are fetched by settlement date, which is UK local time: in summer the half hours from
+    23:00 UTC belong to the next day's date, so the range runs one day past today's UTC date.
+    """
+    prices = fetch_prices((now - RECENT).date(), (now + ONE_DAY).date())
     return [prices, *(fetch_vintages_between(name, now - RECENT, now) for name in DATASETS[1:])]
 
 
@@ -197,6 +202,10 @@ def decide(now: pd.Timestamp, raw: list[pd.DataFrame], frozen: Frozen, entries: 
     """The decision for the next period whose gate is ahead: the backtest's optimiser, one row at a time."""
     target = target_for(now)
     prices, *vintages = raw
+    # Only what had printed by `now`: a fetch that runs long, or a laptop that sleeps mid-fetch,
+    # can bring back prices published after the decision's own timestamp.
+    prices = prices[first_print_at(prices) < now]
+    vintages = [v[v["publish_time"] < now] for v in vintages]
     table = build(_with_future_rows(prices, target), *vintages)
     row = table[table["start_time"] == target].iloc[0]
     p_short = frozen.p_short(row)
@@ -246,9 +255,9 @@ def _git(*args: str) -> str:
 
 
 def publish(paths: list[str], message: str) -> None:
-    """Commit the given files and push; a failed push is retried by the next run's push."""
+    """Commit the given files, and only them, and push; a failed push is retried by the next run's push."""
     _git("add", *paths)
-    _git("commit", "-q", "-m", message)
+    _git("commit", "-q", "-m", message, "--", *paths)
     _git("pull", "-q", "--rebase", "--autostash")
     _git("push", "-q")
 
@@ -335,6 +344,7 @@ def score(prices: pd.DataFrame) -> dict:
     )
     if entries.empty:
         raise SystemExit("every ledger line so far is from the pre-fix process")
+    prices = prices.dropna(subset=["ssp", "niv"]).drop_duplicates("start_time").sort_values("start_time")
     settled = entries.merge(prices[["start_time", "ssp", "niv"]], left_on="target_start", right_on="start_time")
     if settled.empty:
         raise SystemExit("no ledger period has printed yet")
@@ -343,23 +353,28 @@ def score(prices: pd.DataFrame) -> dict:
     labels = battery.LABEL.tolist()
     ours = battery.cash(price)[np.arange(len(settled)), [labels.index(a) for a in settled["action"]]]
 
+    # The schedule's battery runs over every half hour in the span, as a real one would, and is
+    # counted on the same half hours as ours.
+    timeline = prices[prices["start_time"].between(settled["start_time"].min(), settled["start_time"].max())]
+    timeline = timeline.reset_index(drop=True)
     frozen = Frozen.load()
     periods = TestPeriods(
-        rows=settled[["start_time"]],
+        rows=timeline[["start_time"]],
         tables=frozen.optimiser_tables(),
-        month_idx=np.zeros(len(settled), dtype=int),
-        slot=slot_of(settled["start_time"]),
-        day=(settled["start_time"].dt.normalize() - pd.Timestamp("1970-01-01", tz="UTC")).dt.days.to_numpy(),
-        realised=price,
+        month_idx=np.zeros(len(timeline), dtype=int),
+        slot=slot_of(timeline["start_time"]),
+        day=(timeline["start_time"].dt.normalize() - pd.Timestamp("1970-01-01", tz="UTC")).dt.days.to_numpy(),
+        realised=timeline["ssp"].to_numpy(),
     )
     schedule = periods.trade(periods.one_step(periods.table_at("profile")))
+    scored = timeline["start_time"].isin(settled["start_time"]).to_numpy()
     return {
         "periods_scored": len(settled),
         "first": settled["start_time"].min().isoformat(),
         "last": settled["start_time"].max().isoformat(),
         "brier": float(np.mean((settled["p_short"].to_numpy() - short) ** 2)),
         "ours_gbp": float(ours.sum()),
-        "schedule_gbp": float(schedule.pnl.sum()),
+        "schedule_gbp": float(schedule.pnl[scored].sum()),
         "left_out_pre_fix": ledger.loc[pre_fix(ledger), "target_start"].tolist(),
         "left_out_committed_after_the_gate": ledger.loc[late & ~pre_fix(ledger), "target_start"].tolist(),
         "every_line_decided_before_its_gate": bool(
@@ -402,7 +417,7 @@ def main() -> None:
         run_forever()
     elif args.command == "score":
         days = pd.to_datetime([e["target_start"] for e in read_ledger()], utc=True)
-        prices = load("prices") if args.offline else fetch_prices(days.min().date(), days.max().date())
+        prices = load("prices") if args.offline else fetch_prices(days.min().date(), (days.max() + ONE_DAY).date())
         result = score(prices)
         SCORE.write_text(json.dumps(result, indent=1), encoding="utf-8")
         publish([str(SCORE.relative_to(ROOT))], f"ledger: scored {result['periods_scored']} periods")

@@ -69,3 +69,30 @@ def test_hindsight_is_a_ceiling():
     myopic = battery.q_values(np.tile(battery.value_tables(profile)[0], (n, 1)), realised)
     hindsight = battery.simulate(battery.hindsight_q(realised), realised, day).pnl.sum()
     assert hindsight >= battery.simulate(myopic, realised, day).pnl.sum()
+
+
+def _slow_simulate(q: np.ndarray, realised: np.ndarray, day: np.ndarray) -> np.ndarray:
+    """The rules in words: take the best action at today's state of charge, unless today's cash
+    known at this gate (periods up to t-4) has already fallen below the limit; then hold all day."""
+    actions, k = [], 0
+    pnl = np.zeros(len(realised))
+    for i in range(len(realised)):
+        today = np.flatnonzero(day == day[i])
+        known = today[today <= i - PRICE_LAG_PERIODS]
+        running = np.cumsum(pnl[known])
+        halted = bool(len(running)) and running.min() < -battery.DAILY_LOSS_LIMIT
+        a = battery.HOLD if halted else int(q[i, k].argmax())
+        k += battery.MOVE[a]
+        pnl[i] = battery.cash(realised[i : i + 1])[0, a]
+        actions.append(battery.LABEL[a])
+    return np.array(actions)
+
+
+def test_simulate_matches_the_rules_in_words_including_when_the_loss_limit_bites():
+    rng = np.random.default_rng(1)
+    days = 30
+    n = PERIODS_PER_DAY * days
+    realised = rng.normal(80, 600, n)
+    q = battery.q_values(rng.normal(0, 100, (n, battery.K)), rng.normal(80, 40, n))
+    day = np.repeat(np.arange(days), PERIODS_PER_DAY)
+    np.testing.assert_array_equal(battery.simulate(q, realised, day).action, _slow_simulate(q, realised, day))
