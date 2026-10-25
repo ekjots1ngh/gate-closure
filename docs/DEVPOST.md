@@ -1,6 +1,6 @@
 # Devpost write-up
 
-Pasted into the submission form on Sunday. Bracketed figures are filled in after the holdout is opened and the ledger scored.
+Pasted into the submission form on Sunday.
 
 ## Inspiration
 
@@ -11,6 +11,8 @@ Every half hour the GB electricity system is either short of power or long, and 
 One hour before each half hour, Gate Closure forecasts whether the grid will be short or long, using only data that was public at that moment: the four-period-old price, and the newest wind, demand and NESO imbalance forecasts published strictly before the gate. A simulated 1 MW / 2 MWh battery then trades on the forecast through a dynamic programme. Everything is scored against a ladder of baselines (a coin, persistence, NESO's own forecast) and against two ceilings (knowing the side an hour early, knowing every price in advance), with intervals that resample whole weeks.
 
 Over four years of walk-forward testing (July 2022 to June 2026, refitted monthly, 70,120 half hours) the forecast scores Brier 0.2293 against 0.2409 for calibrated persistence and 0.2468 for NESO's forecast. The battery earns £48.3 a day with it against £42.9 on a fixed schedule, a gain of £5.4 a day [1.0, 9.7]. The number we are proudest of is the exchange rate: each 0.01 of Brier is worth £8 to £10 a day to this battery, and a coin-flip-quality forecast loses £13 to £19 a day against not forecasting at all. The first slice of skill only pays for the right to act.
+
+The theme was time, so we also asked what an hour is worth. Rerunning the whole four-year test with the decision made 30 minutes before each half hour instead of 60, the forecast sharpens to Brier 0.220 and the battery earns £57.9 a day instead of £48.3: deciding half an hour later is worth £9.6 a day [6.8, 12.6]. NESO is currently weighing a 30-minute gate closure, so this is a measured input to a live policy question.
 
 ## How we built it
 
@@ -26,7 +28,7 @@ The live record found its own bug in rehearsal: when the newest half hour had no
 
 ## Accomplishments that we're proud of
 
-A pre-registration written before the first result, with eight dated amendments. A poison test that replaces everything published after a cutoff with noise, with a cutoff one minute before every publication, and five planted leaks it must catch. A sealed holdout, opened once on Sunday morning: [holdout result]. And a frozen model, plain JSON with a SHA-256, deciding every half hour since 16:52 UTC on Saturday and pushing each decision to GitHub before that half hour's gate: [N] decisions, every one before its gate, Brier [x] on the ones that have printed.
+A pre-registration written before the first result, with ten dated amendments. A poison test that replaces everything published after a cutoff with noise, with a cutoff one minute before every publication, and five planted leaks it must catch. A sealed holdout (July to October 2026), opened once after the freeze and reported in full: the forecast held (Brier 0.232 against 0.242 for persistence and 0.247 for NESO, passing the pre-registered test), but the money did not. Record price spreads made the fixed schedule earn £86 a day, and against a schedule that strong our own value-of-skill curve says a forecast needs Brier about 0.21 to pay. And a frozen model, plain JSON with a SHA-256, making a call every half hour from a laptop and pushing it to GitHub before the gate. Running it overnight found three real operational failures (a stale second process, a push collision, a laptop asleep mid-decision); each is listed line by line in the README and handled in code.
 
 ## What we learned
 
