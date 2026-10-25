@@ -12,16 +12,16 @@ Built in 24 hours at OxHack '26 (Oxford, 24 to 25 October 2026) for HRT's challe
 
 Walk-forward over four years (July 2022 to June 2026, refitted monthly, 70,120 half hours), with 90% intervals from resampling whole weeks:
 
-- **The forecast is clearly better than the baselines.** Our probability of a short system scores Brier 0.2293. Calibrated persistence scores 0.2409 and NESO's own published imbalance forecast 0.2468. Paired over the same weeks, ours is better by 0.0117 [0.0106, 0.0127].
-- **It is worth a little money, and we can say exactly how much.** The battery earns £42.9 a day on a fixed daily schedule and £48.3 with our forecast: a gain of £5.4 a day [1.0, 9.7]. Persistence and NESO's forecast both lose money against the schedule.
-- **There is an exchange rate between accuracy and money.** Scale the forecast's errors up or down and the money moves almost linearly: £8 to £10 a day per 0.01 of Brier. The line crosses the no-forecast schedule at about Brier 0.235. Trading on a coin-flip-quality forecast loses £13 to £19 a day against simply not forecasting. So the first slice of skill only pays for the right to act on a forecast at all. That is why a clearly better forecast earns only £5 more. In the language of forecast verification, ours is almost perfectly calibrated but has low resolution: it rarely strays far from 50/50.
+- **The forecast is clearly better than the baselines.** Our probability of a short system scores Brier 0.2294. Calibrated persistence scores 0.2412 and NESO's own published imbalance forecast 0.2468. Paired over the same weeks, ours is better by 0.0117 [0.0107, 0.0128].
+- **It is worth a little money, and we can say exactly how much.** The battery earns £42.9 a day on a fixed daily schedule and £48.4 with our forecast: a gain of £5.5 a day [1.2, 9.8]. Persistence and NESO's forecast both lose money against the schedule.
+- **There is an exchange rate between accuracy and money.** Scale the forecast's errors up or down and the money moves almost linearly: £8 to £10 a day per 0.01 of Brier. The line crosses the no-forecast schedule at about Brier 0.236. Trading on a coin-flip-quality forecast loses £13 to £19 a day against simply not forecasting. So the first slice of skill only pays for the right to act on a forecast at all. That is why a clearly better forecast earns only £5.5 more. In the language of forecast verification, ours is almost perfectly calibrated but has low resolution: it rarely strays far from 50/50.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/value_of_skill_dark.svg">
   <img alt="Money per day against Brier score: a nearly straight line from coin-flip accuracy to perfect knowledge of the side, with ours, calibrated persistence and NESO's forecast sitting on it" src="docs/value_of_skill_light.svg">
 </picture>
 
-For scale, knowing the side of every half hour an hour early would earn £223 a day, and knowing every price in advance £345. A boosted-tree classifier beats our logistic model on Brier but not on money (£48.2 to £50.0 depending on the machine, against £48.3), so the simple model ships. Forecasting the price directly earns less than the fixed schedule.
+For scale, knowing the side of every half hour an hour early would earn £223 a day, and knowing every price in advance £345. A boosted-tree classifier beats our logistic model on Brier (0.2266) but not on money (£47.4 a day against £48.4; it moves by up to £2 between machines), so the simple model ships. Forecasting the price directly earns less than the fixed schedule.
 
 Every table, interval and robustness check is in [docs/RESULTS.md](docs/RESULTS.md), generated from the pipeline's output.
 
@@ -38,11 +38,11 @@ Gate closure is fixed at an hour by the market's rules, and NESO's 2026 consulta
 
 | decided before the half hour | 120 min | 90 min | **60 min (the rule)** | 30 min |
 | :--- | ---: | ---: | ---: | ---: |
-| Brier, ours | 0.2330 | 0.2323 | **0.2293** | 0.2200 |
-| £ a day, ours (schedule £42.9) | 45.1 | 42.6 | **48.3** | 57.9 |
-| gain over the schedule, £ a day | 2.1 [-2.6, 7.0] | -0.4 [-4.6, 4.2] | **5.4 [1.0, 9.7]** | 15.0 [10.1, 19.9] |
+| Brier, ours | 0.2331 | 0.2325 | **0.2294** | 0.2202 |
+| £ a day, ours (schedule £42.9) | 45.2 | 42.2 | **48.4** | 58.2 |
+| gain over the schedule, £ a day | 2.2 [-2.6, 7.3] | -0.8 [-5.0, 3.6] | **5.5 [1.2, 9.8]** | 15.3 [10.3, 20.4] |
 
-Deciding half an hour later is worth £9.6 a day more to this battery [6.8, 12.6], paired by week. The gain holds where print times are exact (first prints, to January 2024): £22.0 a day over the schedule at 30 minutes [10.9, 33.2], against £9.4 at 60. Further from delivery than an hour, the edge is gone. This is an analysis added after the results ([amendment 10](PROTOCOL.md#amendments)), not a change to any model.
+Deciding half an hour later is worth £9.8 a day more to this battery [7.1, 12.8], paired by week. The gain holds where print times are exact (first prints, to January 2024): £22.9 a day over the schedule at 30 minutes [11.8, 34.0], against £9.9 at 60. Money at 120 and 90 minutes is noisier than the Brier score, which worsens steadily with distance. Further from delivery than an hour, the edge is gone. This is an analysis added after the results ([amendment 10](PROTOCOL.md#amendments)), not a change to any model.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/value_of_time_dark.svg">
@@ -53,15 +53,15 @@ Deciding half an hour later is worth £9.6 a day more to this battery [6.8, 12.6
 
 | Concept | Where you meet it | What it does here | What it showed |
 |:---|:---|:---|:---|
-| Logistic regression, fitted by maximum likelihood | 2nd-year statistics | Turns 16 gate-safe features into P(short) | Brier 0.2293, against 0.2409 for persistence |
-| Proper scoring rules: Brier score, log loss | 3rd-year statistics | Scores probabilities so that honest forecasting is the best strategy | A coin is 1 bit; ours is 0.9375, so it extracts 0.06 bits per half hour |
+| Logistic regression, fitted by maximum likelihood | 2nd-year statistics | Turns 16 gate-safe features into P(short) | Brier 0.2294, against 0.2412 for persistence |
+| Proper scoring rules: Brier score, log loss | 3rd-year statistics | Scores probabilities so that honest forecasting is the best strategy | A coin is 1 bit; ours is 0.9379, so it extracts 0.06 bits per half hour |
 | Murphy's decomposition, reliability diagram | Forecast verification | Separates calibration from resolution | Calibration near perfect (0.0003); resolution 2.2 times persistence's, but only 8% of the uncertainty |
-| Block bootstrap; Diebold-Mariano with Newey-West variance | Time series, econometrics | Honest uncertainty when errors are autocorrelated: weeks are resampled whole, and the variance allows a week of lags (336 half hours) | Ours beats persistence by 0.0117 [0.0106, 0.0127]; Diebold-Mariano statistic -17 |
+| Block bootstrap; Diebold-Mariano with Newey-West variance | Time series, econometrics | Honest uncertainty when errors are autocorrelated: weeks are resampled whole, and the variance allows a week of lags (336 half hours) | Ours beats persistence by 0.0117 [0.0107, 0.0128]; Diebold-Mariano statistic -17 |
 | Law of total expectation, certainty equivalence | Probability, optimal control | E[price] = p × (price when short) + (1 - p) × (price when long). Cash is linear in price and the battery is too small to move it, so for the half hour being traded this one number is all the optimiser needs | Why a calibrated probability is enough: it maps straight to the expected price |
 | Dynamic programming: Bellman equation, backward induction | Algorithms, optimisation | Values every state of charge and re-plans each half hour (model predictive control) | Vectorised over 70,120 half hours: the whole study runs in seconds |
 | Two-state Markov chain | 2nd-year probability | Carries the forecast forward, fading at the side's own persistence | Tested, and too simple: the grid's memory decays more slowly than geometric. Fixing it is worth about £1 a day |
 | Expected value of information | Decision theory | Prices accuracy in pounds, with two ceilings | £8 to £10 a day per 0.01 of Brier; knowing the side £223 a day, hindsight £345 |
-| Sharpe ratio, information ratio, drawdown | Finance | Risk-adjusted view of the gain over the schedule | Information ratio 0.51 a year: real, but noisy |
+| Sharpe ratio, information ratio, drawdown | Finance | Risk-adjusted view of the gain over the schedule | Information ratio 0.53 a year: real, but noisy |
 | Point-in-time as-of joins (a sorted merge), walk-forward testing | Algorithms, quant practice | No input is ever used before it was public | Poison check on a real week: 0 of 170 decisions change |
 | Mutation testing | Software engineering | Proves the leak test can actually fail | 5 leaks planted, 5 caught |
 
@@ -122,7 +122,7 @@ flowchart LR
 - **Pre-registered.** [`PROTOCOL.md`](PROTOCOL.md) fixed the question, baselines, battery, metrics and failure condition before any result existed. Every later change is a dated amendment saying what changed, why, and its effect, including the ones found by an independent code review.
 - **Held out.** July to 23 October 2026 was sealed. `python -m gclose.holdout` opened it once, after the freeze, with the walk-forward's own recipe, and refuses to run a second time. It was opened on Saturday evening rather than Sunday morning ([amendment 9](PROTOCOL.md#amendments)); the result is above, including the part that went against us.
 - **Live.** From the freeze, `python -m gclose.live run` decides every half hour and pushes each decision to [`ledger/decisions.jsonl`](ledger/) six minutes before that half hour's gate, once the newest price has normally printed. The frozen model is [plain JSON](ledger/model.json) with a SHA-256 of its contents, and every line carries that hash, so anyone can recompute any decision. GitHub's timestamps are the receipt. Some lines came from old code: after the fix in [amendment 8](PROTOCOL.md#amendments) the first process kept running beside the fixed one for a while (from the 18:30 UTC half hour on 24 October), reading the unprinted newest period as long. The ledger is append-only, so those lines stay. They carry the bug's signature, a side for the newest period although its volume had not printed, and `python -m gclose.live score` leaves them out and lists them.
-- **Known limitation.** From February 2024 Elexon serves each price as revised the next day, and the first print is not kept. In that era our price-based inputs use revised values that were not public at the gate (the timing rule itself is still enforced). We report both eras: before the switch, with clean first prints, ours beats the schedule by £9.4 a day and persistence by 0.0127 Brier; after it, by £2.7 and 0.0110.
+- **Known limitation.** From February 2024 Elexon serves each price as revised the next day, and the first print is not kept. In that era our price-based inputs use revised values that were not public at the gate (the timing rule itself is still enforced). We report both eras: before the switch, with clean first prints, ours beats the schedule by £9.9 a day and persistence by 0.0129 Brier; after it, by £2.6 and 0.0110.
 - **Reproducible.** The raw data is committed, so every number rebuilds offline. Two machines agree to the decimal on everything except the boosted model, which moves by up to £2 a day with floating-point differences in tree building.
 
 ### The live record, line by line (to Sunday 05:30 UTC)
@@ -163,7 +163,7 @@ Python 3.11 or later, any OS. About three minutes from a clean clone, with no ne
 pip install -e ".[dev]"            # or: pip install -r requirements.txt
 make reproduce                     # or run the lines below in order
 
-python -m pytest -q                # 33 tests, about 15 s
+python -m pytest -q                # 35 tests, about 15 s
 python -m gclose.features          # gate-safe feature table from data/raw (12 s)
 python -m gclose.backtest          # walk-forward forecasts, Brier and log loss
 python -m gclose.price_models      # the boosted and ridge checks (1.5 min)
