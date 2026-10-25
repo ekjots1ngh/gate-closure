@@ -1,8 +1,8 @@
 {
- "periods_scored": 4,
+ "periods_scored": 9,
  "first": "2026-10-24T18:00:00+00:00",
- "last": "2026-10-24T21:00:00+00:00",
- "brier": 0.307564565,
+ "last": "2026-10-25T09:00:00+00:00",
+ "brier": 0.33061896222222226,
  "ours_gbp": 0.0,
  "schedule_gbp": 0.0,
  "left_out_pre_fix": [
@@ -10,6 +10,9 @@
   "2026-10-24T19:00:00+00:00",
   "2026-10-24T19:30:00+00:00",
   "2026-10-24T20:00:00+00:00"
+ ],
+ "left_out_committed_after_the_gate": [
+  "2026-10-24T23:00:00+00:00"
  ],
  "every_line_decided_before_its_gate": true
 }
