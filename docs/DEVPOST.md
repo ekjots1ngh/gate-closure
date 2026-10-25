@@ -12,7 +12,7 @@ One hour before each half hour, Gate Closure forecasts whether the grid will be 
 
 Over four years of walk-forward testing (July 2022 to June 2026, refitted monthly, 70,120 half hours) the forecast scores Brier 0.2294 against 0.2412 for calibrated persistence and 0.2468 for NESO's forecast. The battery earns £48.4 a day with it against £42.9 on a fixed schedule, a gain of £5.5 a day [1.2, 9.8]. The number we are proudest of is the exchange rate: each 0.01 of Brier is worth £8 to £10 a day to this battery, and a coin-flip-quality forecast loses £13 to £19 a day against not forecasting at all. The first slice of skill only pays for the right to act.
 
-The theme was time, so we also asked what an hour is worth. Rerunning the whole four-year test with the decision made 30 minutes before each half hour instead of 60, the forecast sharpens to Brier 0.220 and the battery earns £58.2 a day instead of £48.4: deciding half an hour later is worth £9.8 a day [7.1, 12.8]. NESO is currently weighing a 30-minute gate closure, so this is a measured input to a live policy question.
+The theme was time, so we also asked what an hour is worth. Rerunning the whole four-year test with the decision made 30 minutes before each half hour instead of 60, the forecast sharpens to Brier 0.220 and the battery earns £58.2 a day instead of £48.4: deciding half an hour later is worth £9.8 a day [7.1, 12.8]. NESO's 2026 consultation on balancing reform recorded calls to move gate closure to 30 minutes, so this is a measured input to a live policy question.
 
 ## How we built it
 
