@@ -70,3 +70,16 @@ def test_pre_fix_lines_are_recognised_by_the_bug_s_signature():
         }
     )
     assert live.pre_fix(ledger).tolist() == [False, True, False]
+
+
+def test_a_laptop_waking_late_skips_the_run_instead_of_deciding_off_schedule():
+    moment = pd.Timestamp("2026-10-24 21:24", tz="UTC")
+    assert live.on_schedule(moment, moment + pd.Timedelta(seconds=30))
+    assert not live.on_schedule(moment, pd.Timestamp("2026-10-24 21:32", tz="UTC"))  # what happened that night
+    assert not live.on_schedule(moment, moment - pd.Timedelta(seconds=1))
+
+
+def test_a_decision_finished_after_its_gate_is_not_recorded():
+    entry = {"gate": "2026-10-24T22:00:00+00:00"}
+    assert live.before_gate(entry, pd.Timestamp("2026-10-24 21:32", tz="UTC"))
+    assert not live.before_gate(entry, pd.Timestamp("2026-10-25 05:19", tz="UTC"))

@@ -45,6 +45,7 @@ DECISIONS = LEDGER / "decisions.jsonl"
 SCORE = LEDGER / "score.json"
 RECENT = timedelta(days=3)  # raw data fetched each run: enough for every lag and rolling window
 RUN_AT_MINUTES = (24, 54)  # six minutes before each gate: late enough for t-4's price to have printed
+WAKE_TOLERANCE = pd.Timedelta(minutes=2)  # a run that wakes later than this after its moment is skipped
 HALF_HOUR = pd.Timedelta(minutes=30)
 
 
@@ -267,22 +268,41 @@ def _sleep_until(moment: pd.Timestamp) -> None:
         time.sleep(min(remaining, 60))
 
 
+def on_schedule(moment: pd.Timestamp, now: pd.Timestamp) -> bool:
+    """Is it still the scheduled moment? A laptop waking from sleep long after it must not decide
+    then: the lead to the gate and the prices that have printed would both be off schedule."""
+    return pd.Timedelta(0) <= now - moment <= WAKE_TOLERANCE
+
+
+def before_gate(entry: dict, now: pd.Timestamp) -> bool:
+    """Was the decision finished before its gate? One that ends after it (a laptop asleep mid-fetch) is no receipt."""
+    return now < pd.Timestamp(entry["gate"])
+
+
 def run_forever() -> None:
     """Decide, record and push at :24 and :54 UTC until stopped with Ctrl+C.
 
     It always waits for the next scheduled moment first, so a restart never decides early,
-    before the newest price has had its usual time to print.
+    before the newest price has had its usual time to print. A moment slept through is skipped,
+    and a decision that only finishes after its gate is not recorded.
     """
     frozen = Frozen.load()
     print(f"live with model {frozen.sha256()[:12]}, frozen at {frozen.frozen_at}")
     while True:
-        _sleep_until(_next_run(pd.Timestamp.now(tz="UTC")))
+        moment = _next_run(pd.Timestamp.now(tz="UTC"))
+        _sleep_until(moment)
         now = pd.Timestamp.now(tz="UTC")
+        if not on_schedule(moment, now):
+            print(f"{now:%H:%M} woke after the {moment:%H:%M} run was due; skipped it rather than decide off schedule")
+            continue
         entries = read_ledger()
         if any(entry["target_start"] == target_for(now).isoformat() for entry in entries):
             continue
         try:
             entry = decide(now, fetch_recent(now), frozen, entries)
+            if not before_gate(entry, pd.Timestamp.now(tz="UTC")):
+                print(f"the call for {entry['target_start'][11:16]} finished after its gate; not recorded")
+                continue
             with DECISIONS.open("a", encoding="utf-8") as ledger:
                 ledger.write(json.dumps(entry) + "\n")
             publish(
