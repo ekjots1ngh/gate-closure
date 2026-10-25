@@ -82,9 +82,9 @@ export default function Receipts({ r, onPoison }: { r: Replay; onPoison: () => v
           <h2>The sealed holdout</h2>
           <p className="proves">Proves the results were not tuned to the test.</p>
           <p>
-            July to 23 October 2026 was never looked at. It is opened once, on Sunday morning, with the frozen recipe.
-            The failure condition was written before any result: if ours does not beat persistence on Brier outside the
-            90% interval, that null is the headline.
+            July to 23 October 2026 was sealed until after the freeze, then opened once with the frozen recipe. The
+            forecast held: Brier 0.232 against 0.242 for persistence and 0.247 for NESO, passing the test written before
+            any result. The money did not: record price spreads made the fixed schedule earn £86 a day, and ours £72.
           </p>
         </div>
       </div>
