@@ -1,59 +1,7 @@
-import { useEffect, useState } from 'react';
 import { hhmm, side, sure, verb, type Replay } from './data';
+import { preFix, REPO, useLive, type Decision } from './live';
 
-const REPO = 'https://github.com/ekjots1ngh/gate-closure';
-const LEDGER = 'https://raw.githubusercontent.com/ekjots1ngh/gate-closure/main/ledger/decisions.jsonl';
-const COMMITS = 'https://api.github.com/repos/ekjots1ngh/gate-closure/commits?path=ledger/decisions.jsonl&per_page=100';
-const LEDGER_REFRESH_MS = 60_000;
-const COMMITS_REFRESH_MS = 5 * 60_000;   // GitHub allows 60 unauthenticated API calls an hour
 const SHOWN_ROWS = 8;
-
-interface Decision {
-  target_start: string;
-  gate: string;
-  decided_at: string;
-  p_short: number;
-  action: number;
-  soc_after: number;
-  model_sha256: string;
-  inputs: Record<string, number | null>;
-}
-interface Commit { url: string; at: string }
-
-// Mirrors gclose/live.py: lines from the code before PROTOCOL amendment 8 carry its bug's signature,
-// a side for the newest period although its volume had not printed. They stay in the ledger and are not scored.
-const preFix = (row: Decision) => row.inputs.short_newest !== null && row.inputs.niv_newest === null;
-
-/** Fetch `url` now and every `ms`, keeping the last good result; null until the first answer. */
-function usePolled<T>(url: string, ms: number, parse: (body: string) => T): { data: T | null; failed: boolean } {
-  const [data, setData] = useState<T | null>(null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    const load = () =>
-      fetch(url.includes('raw.githubusercontent') ? `${url}?t=${Date.now()}` : url)
-        .then((res) => (res.ok ? res.text() : Promise.reject(res.status)))
-        .then((body) => { if (alive) { setData(parse(body)); setFailed(false); } })
-        .catch(() => { if (alive) setFailed(true); });
-    load();
-    const timer = setInterval(load, ms);
-    return () => { alive = false; clearInterval(timer); };
-  }, [url, ms]);   // eslint-disable-line react-hooks/exhaustive-deps
-  return { data, failed };
-}
-
-const parseLedger = (body: string): Decision[] => body.trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
-
-/** Each ledger commit's GitHub page and commit time, keyed by "target|decided_at" from its message. */
-const parseCommits = (body: string): Map<string, Commit> => {
-  const commits = new Map<string, Commit>();
-  // The author date is when the laptop committed the call; the committer date moves when a pull rebases it.
-  for (const c of JSON.parse(body) as { html_url: string; commit: { message: string; author: { date: string } } }[]) {
-    const match = /^ledger: (\S+) decided at (\S+)/.exec(c.commit.message);
-    if (match) commits.set(`${match[1]}|${match[2]}`, { url: c.html_url, at: new Date(c.commit.author.date).toISOString() });
-  }
-  return commits;
-};
 
 /** The three receipts: the poison check on this very week, the sealed holdout, and the live record. */
 export default function Receipts({ r, onPoison }: { r: Replay; onPoison: () => void }) {
@@ -95,20 +43,14 @@ export default function Receipts({ r, onPoison }: { r: Replay; onPoison: () => v
 }
 
 function LiveRecord() {
-  const ledger = usePolled(LEDGER, LEDGER_REFRESH_MS, parseLedger);
-  const commits = usePolled(COMMITS, COMMITS_REFRESH_MS, parseCommits);
-  const rows = ledger.data;
-  // Two live processes once made the same call within a millisecond; the score counts each half hour once, and so does this table.
-  const clean = (rows?.filter((row) => !preFix(row)) ?? []).filter(
-    (row, i, all) => all.findIndex((other) => other.target_start === row.target_start) === i,
-  );
+  const live = useLive();
+  const { rows, clean, inTime, committedAt } = live;
   const oldCode = rows?.filter(preFix).length ?? 0;
   const copies = (rows?.length ?? 0) - oldCode - clean.length;
   const recent = clean.slice(-SHOWN_ROWS).reverse();
-  const committedAt = (row: Decision) => commits.data?.get(`${row.target_start}|${row.decided_at}`)?.at;
-  const inTime = (row: Decision) => Date.parse(committedAt(row) ?? row.decided_at) < Date.parse(row.gate);
   const counted = clean.filter(inTime).length;
   const trades = clean.filter((row) => row.action !== 0).length;
+  const commitOf = (row: Decision) => (committedAt(row) ? { at: committedAt(row)!, url: live.commits?.get(`${row.target_start}|${row.decided_at}`)?.url ?? '' } : undefined);
 
   return (
     <div className="inset receipt">
@@ -118,7 +60,7 @@ function LiveRecord() {
         The model was frozen on Saturday afternoon. Since then a laptop makes the call for each half hour six minutes
         before its gate and commits it to GitHub. A call counts only if it was committed before its gate.
       </p>
-      {ledger.failed && !rows && <p className="note">GitHub is out of reach from here; the record is in ledger/decisions.jsonl.</p>}
+      {live.failed && !rows && <p className="note">GitHub is out of reach from here; the record is in ledger/decisions.jsonl.</p>}
       {rows && (
         <>
           <p className="live-line">
@@ -129,7 +71,7 @@ function LiveRecord() {
             <thead><tr><th>half hour, UTC</th><th>called</th><th>trade</th><th>decided</th><th>committed</th><th>before the gate</th></tr></thead>
             <tbody>
               {recent.map((row) => {
-                const commit = commits.data?.get(`${row.target_start}|${row.decided_at}`);
+                const commit = commitOf(row);
                 const lead = (Date.parse(row.gate) - Date.parse(commit?.at ?? row.decided_at)) / 60_000;
                 return (
                   <tr key={`${row.target_start}|${row.decided_at}`} className={inTime(row) ? undefined : 'late'}>

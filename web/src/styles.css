@@ -45,7 +45,7 @@ a { color: inherit; }
   height: 100vh;
   min-height: 700px;
   display: grid;
-  grid-template-rows: auto 24px minmax(0, 1fr);
+  grid-template-rows: auto auto 24px minmax(0, 1fr);
   border-bottom: 1px solid var(--rule);
 }
 
@@ -79,6 +79,29 @@ a { color: inherit; }
 .controls .poison[aria-pressed='true'] { border-color: var(--short); color: var(--short); }
 .four-years { grid-column: 3; justify-self: end; margin: 8px 0 0; font-size: 12.5px; color: var(--ink-soft); text-align: right; max-width: 60ch; }
 .four-years b { color: var(--ink); font-weight: 700; }
+
+/* Live now: the countdown, the latest call, and recent calls against outcomes. */
+.live-now { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(0, 1.4fr); gap: 4px 40px; align-items: start; padding: 8px 22px 8px; border-bottom: 1px solid var(--rule); background: var(--recess); }
+.live-head { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+.live-head h2 { margin: 0; font-size: 13px; font-weight: 400; color: var(--ink-soft); display: flex; align-items: center; gap: 8px; }
+.live-clock { margin: 0; font-size: 13px; color: var(--ink-soft); }
+.live-clock b { color: var(--ink); font-size: 16px; }
+.live-call { min-width: 0; }
+.live-big { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.live-when { font-size: 14px; color: var(--ink-soft); }
+.live-side { font-size: 28px; font-weight: 700; line-height: 1; }
+.live-act { font-size: 20px; font-weight: 700; }
+.live-meta { margin: 2px 0 0; font-size: 12px; color: var(--ink-faint); max-width: 62ch; }
+.live-strip { min-width: 0; }
+.live-rows { display: grid; gap: 2px 4px; align-items: end; max-width: 640px; }
+.live-label { font-size: 11px; color: var(--ink-faint); text-align: right; padding-right: 6px; align-self: center; }
+.live-cell { display: flex; justify-content: center; align-items: flex-end; height: 30px; min-width: 22px; }
+.live-bar { display: block; width: 100%; border-radius: 2px; }
+.live-dot { display: block; width: 100%; height: 8px; border-radius: 2px; align-self: center; }
+.live-time { font-size: 10px; color: var(--ink-faint); height: auto; font-variant-numeric: tabular-nums; }
+.live-score { margin: 4px 0 0; font-size: 12px; color: var(--ink-soft); }
+@keyframes breathe { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+.live-head .live-lamp { animation: breathe 2.4s ease-in-out infinite; }
 
 /* The week strip: a scrubber, the days marked, each printed half hour coloured by its outcome. */
 .week { position: relative; margin: 0 22px; cursor: pointer; }
@@ -219,6 +242,7 @@ svg .figure { fill: var(--ink); }
   .controls { justify-content: start; }
   .four-years { grid-column: 1; justify-self: start; text-align: left; }
   .deck { grid-template-columns: 1fr; grid-template-rows: auto; }
+  .live-now { grid-template-columns: 1fr; }
   .map, .gate, .battery { grid-column: 1; grid-row: auto; border-right: none; border-top: 1px solid var(--rule); }
   .battery { grid-template-columns: 1fr; }
   .section { grid-template-columns: 1fr; }
@@ -226,7 +250,7 @@ svg .figure { fill: var(--ink); }
 
 @media (prefers-reduced-motion: reduce) {
   .print-flash { animation: none; opacity: 0; }
-  .feeder.charging, .feeder.discharging { animation: none; }
+  .feeder.charging, .feeder.discharging, .live-head .live-lamp { animation: none; }
   .lamp, .cell, .tint, .region { transition: none; }
   .focus-ring { animation: none; }
 }

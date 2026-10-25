@@ -7,6 +7,8 @@ import {
 } from './data';
 import GateChart from './GateChart';
 import HourCurve from './HourCurve';
+import { useLive } from './live';
+import LiveNow from './LiveNow';
 import MapPanel from './MapPanel';
 import MoneyLadder from './MoneyLadder';
 import Receipts from './Receipts';
@@ -25,6 +27,7 @@ const brier = (model: string) => R.forecasts.find((f) => f.model === model)!.bri
 
 export default function App() {
   const d = useMemo(() => derive(R), []);
+  const live = useLive();
   const end = d.starts[d.n - 1] + 3 * PERIOD_MS;
   const [now, setNow] = useState(d.t0 + START_OFFSET);
   const [playing, setPlaying] = useState(false);
@@ -111,7 +114,7 @@ export default function App() {
             <h1>Gate Closure</h1>
             <p className="what">
               Every half hour the GB grid is short of power or long. An hour before, using only what was public, we call
-              which; a battery trades on the call; the price arrives later.
+              which; a battery trades on the call; the price arrives later. Below: live now, then a week replayed.
             </p>
           </div>
           <div className="clock" aria-live="off">
@@ -131,6 +134,7 @@ export default function App() {
             </p>
           </div>
         </header>
+        <LiveNow live={live} />
         <WeekStrip d={d} now={now} end={end} printed={printed} seek={seek} />
 
         <main className="deck">
