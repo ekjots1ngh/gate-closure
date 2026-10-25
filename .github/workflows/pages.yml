@@ -1,6 +1,7 @@
 name: demo
 
-# Publishes the built demo (web/dist) to GitHub Pages whenever it changes.
+# Publishes the built demo (web/dist) to GitHub Pages whenever it changes, at
+# https://ekjots1ngh.github.io/gate-closure/ (Settings, Pages, source: GitHub Actions).
 on:
   push:
     branches: [main]
