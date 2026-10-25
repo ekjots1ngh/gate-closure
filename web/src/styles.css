@@ -138,6 +138,29 @@ a { color: inherit; }
 .legend-line .sep { margin-left: 8px; }
 .legend-line .score { margin-left: auto; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
+/* The tour: one card, and everything but the step's subject dimmed. */
+.show { position: relative; }
+.region { transition: opacity 300ms ease; }
+.show[data-focus='gate'] .map, .show[data-focus='gate'] .battery,
+.show[data-focus='gate-battery'] .map,
+.show[data-focus='map'] .gate, .show[data-focus='map'] .battery { opacity: 0.28; }
+@keyframes ring-in { from { opacity: 0; } to { opacity: 1; } }
+.focus-ring { fill: none; stroke: var(--ink); stroke-width: 2; animation: ring-in 400ms ease-out; }
+.tour-card {
+  position: absolute; bottom: 16px; z-index: 5;
+  background: var(--recess); border: 1px solid var(--ink-soft); border-radius: 6px;
+  padding: 14px 16px 12px; box-shadow: 0 10px 30px rgba(10, 14, 12, 0.45);
+}
+.tour-card.left { left: 14px; width: max(236px, calc(23% - 28px)); }
+.tour-card.right { right: 22px; width: 380px; }
+.tour-count { margin: 0; font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.tour-title { margin: 2px 0 4px; font-size: 16px; font-weight: 700; }
+.tour-body { margin: 0 0 12px; font-size: 13px; line-height: 1.45; color: var(--ink-soft); }
+.tour-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.tour-actions button { background: var(--panel); border: 1px solid var(--rule); border-radius: 3px; padding: 5px 10px; cursor: pointer; color: var(--ink-soft); }
+.tour-actions .primary { background: var(--ink); border-color: var(--ink); color: var(--panel); font-weight: 700; }
+.tour-actions .quiet { border-color: transparent; background: none; margin-left: auto; }
+
 /* ---------- the record: what four years and the receipts say ---------- */
 
 .record { max-width: 1480px; margin: 0 auto; padding: 8px 22px 48px; }
@@ -197,5 +220,6 @@ svg .figure { fill: var(--ink); }
 @media (prefers-reduced-motion: reduce) {
   .print-flash { animation: none; opacity: 0; }
   .feeder.charging, .feeder.discharging { animation: none; }
-  .lamp, .cell, .tint { transition: none; }
+  .lamp, .cell, .tint, .region { transition: none; }
+  .focus-ring { animation: none; }
 }

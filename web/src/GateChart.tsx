@@ -1,6 +1,7 @@
 import * as d3 from 'd3';
 import { useMemo, useState } from 'react';
 import { decidedCount, GATE_MS, gbp, hhmm, PERIOD_MS, PRINT_MS, printedCount, side, sure, tone, verb, type Derived, type Replay } from './data';
+import type { ChartFocus } from './Tour';
 import { useSize } from './useSize';
 
 const HOUR = 3_600_000;
@@ -19,6 +20,7 @@ interface Props {
   now: number;
   poison: boolean;
   noiseSeed: number;
+  focus: ChartFocus;   // what the tour is pointing at, outlined
 }
 
 /**
@@ -27,7 +29,7 @@ interface Props {
  * at each gate as a bar from 50% (up for short, down for long, as tall as the call was sure), and
  * under it what then happened.
  */
-export default function GateChart({ r, d, now, poison, noiseSeed }: Props) {
+export default function GateChart({ r, d, now, poison, noiseSeed, focus }: Props) {
   const [ref, { width, height }] = useSize<HTMLDivElement>({ width: 800, height: 380 });
   const gate = Math.floor(now / PERIOD_MS) * PERIOD_MS;      // the latest gate passed
   const target = gate + GATE_MS;                              // the period it decided
@@ -179,6 +181,16 @@ export default function GateChart({ r, d, now, poison, noiseSeed }: Props) {
               {lines.map((line, n) => <text key={n} x={left + 10} y={M.top + 52 + 17 * n} style={{ fill: n === 0 ? 'var(--ink)' : undefined }}>{line}</text>)}
             </g>
           );
+        })()}
+
+        {focus && (() => {
+          const box = {
+            outcome: { x: M.left - 4, y: stripTop - 5, w: width - M.right - M.left + 8, h: STRIP + 10 },
+            call: { x: x(target) - 6, y: M.top - 16, w: Math.min(width - M.right, x(target + PERIOD_MS) + 104) - x(target) + 6, h: stripTop + STRIP + 22 - M.top },
+            band: { x: x(gate) - 4, y: M.top - 22, w: x(target) - x(gate) + 8, h: stripTop + STRIP + 28 - M.top },
+            price: newest ? { x: x(newest.start + PERIOD_MS) - 14, y: y(newest.price) - 16, w: 78, h: 32 } : null,
+          }[focus];
+          return box && <rect className="focus-ring" x={box.x} y={box.y} width={box.w} height={box.h} rx={6} pointerEvents="none" />;
         })()}
 
         {ticks.map((t) => (

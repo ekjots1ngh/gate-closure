@@ -11,6 +11,7 @@ import MoneyLadder from './MoneyLadder';
 import Receipts from './Receipts';
 import Reliability from './Reliability';
 import Skill from './Skill';
+import Tour, { STEPS } from './Tour';
 
 const R = replay as unknown as Replay;
 const SPEEDS = [0.5, 2, 8];                    // half hours of replay per second: slow enough to read by default
@@ -29,6 +30,8 @@ export default function App() {
   const [speed, setSpeed] = useState(SPEEDS[0]);
   const [poison, setPoison] = useState(false);
   const [noiseSeed, setNoiseSeed] = useState(1);
+  const [tourOpen, setTourOpen] = useState(true);            // offered on arrival; the button brings it back
+  const [tourStep, setTourStep] = useState<number | null>(null);
   const last = useRef<number | null>(null);
 
   // The replay clock.
@@ -62,6 +65,18 @@ export default function App() {
       return !on;
     });
   }, [d.cutoff]);
+  const goToStep = useCallback((i: number) => {
+    const s = STEPS[i];
+    setTourStep(i);
+    setPlaying(false);
+    setPoison(Boolean(s.poison));
+    if (s.poison) setNow(d.cutoff);
+    else if (s.at !== undefined) setNow(d.t0 + s.at);
+  }, [d.cutoff, d.t0]);
+  const closeTour = useCallback(() => { setTourOpen(false); setTourStep(null); setPoison(false); }, []);
+  const finishTour = useCallback(() => { closeTour(); setPlaying(true); }, [closeTour]);
+  const step = tourOpen && tourStep !== null ? STEPS[tourStep] : null;
+
   const nextSpeed = () => setSpeed((s) => SPEEDS[(SPEEDS.indexOf(s) + 1) % SPEEDS.length]);
   const seek = (t: number) => { setPoison(false); setPlaying(false); setNow(t); };
 
@@ -89,7 +104,7 @@ export default function App() {
 
   return (
     <>
-      <div className="show">
+      <div className="show" data-focus={step?.region}>
         <header className="masthead">
           <div>
             <h1>Gate Closure</h1>
@@ -107,6 +122,7 @@ export default function App() {
               <button className={playing ? undefined : 'play'} onClick={() => { setPoison(false); setPlaying((p) => !p); }} aria-pressed={playing} title="Space">{playing ? 'Pause' : 'Play the week'}</button>
               <button className="speed" onClick={nextSpeed} title="Half hours a second; keys 1, 2, 3">{speed}×</button>
               <button className="poison" onClick={togglePoison} aria-pressed={poison} title="P">Poison the future</button>
+              {!tourOpen && <button onClick={() => { setTourOpen(true); goToStep(0); }}>How it works</button>}
             </div>
             <p className="four-years">
               Four years out of sample: Brier <b>{brier('ours').value.toFixed(3)}</b> against {brier('persistence_cal').value.toFixed(3)} for
@@ -122,13 +138,14 @@ export default function App() {
           </section>
           <section className="region gate">
             <Headline gate={gate} target={target} newestKnown={newestKnown} d={d} poison={poison} />
-            <GateChart r={R} d={d} now={now} poison={poison} noiseSeed={noiseSeed} />
+            <GateChart r={R} d={d} now={now} poison={poison} noiseSeed={noiseSeed} focus={step?.chart ?? null} />
             <Legend printed={printed} poison={poison} />
           </section>
           <section className="region battery">
             <Battery r={R} d={d} now={now} period={periodAt(d, now)} />
           </section>
         </main>
+        {tourOpen && <Tour step={tourStep} onStep={goToStep} onClose={closeTour} onFinish={finishTour} />}
       </div>
 
       <div className="record">
